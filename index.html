@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResumeForge — AI Resume Builder</title>
+
+  <!--
+    Fonts:
+      Playfair Display  — editorial, high-contrast serif for headings
+      Instrument Sans   — refined, humanist sans for body text
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* =====================================================
+       DESIGN LANGUAGE
+       Dark editorial — like a high-end print magazine
+       translated into UI. Cream on charcoal, gold accents,
+       tight typography, sharp dividers.
+       ===================================================== */
+    :root {
+      --ink:       #0e0e0e;
+      --paper:     #f5f0e8;      /* warm cream */
+      --card:      #1a1a1a;
+      --card2:     #242424;
+      --border:    #2e2e2e;
+      --gold:      #c9a84c;      /* the ONE accent colour */
+      --gold-dim:  #7a5f22;
+      --red:       #d95f52;
+      --green:     #4caf7d;
+      --text:      #e8e4dc;
+      --muted:     #6b6560;
+      --font-head: 'Playfair Display', Georgia, serif;
+      --font-body: 'Instrument Sans', sans-serif;
+      --r:         10px;
+      --r-sm:      6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--ink);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.65;
+      min-height: 100vh;
+      /* subtle noise texture */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+
+    /* ── layout shell ──────────────────────────────────── */
+    .shell {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 56px 24px 100px;
+    }
+
+    /* ── masthead ──────────────────────────────────────── */
+    .masthead {
+      text-align: center;
+      margin-bottom: 52px;
+      animation: rise 0.7s ease both;
+    }
+
+    .masthead-eyebrow {
+      display: inline-block;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 5px 16px;
+      border-radius: 99px;
+      margin-bottom: 22px;
+    }
+
+    .masthead h1 {
+      font-family: var(--font-head);
+      font-size: clamp(38px, 7vw, 64px);
+      font-weight: 900;
+      line-height: 1.0;
+      letter-spacing: -0.02em;
+      color: var(--paper);
+      margin-bottom: 14px;
+    }
+
+    .masthead h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .masthead p {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* ── gold rule ─────────────────────────────────────── */
+    .gold-rule {
+      width: 48px;
+      height: 2px;
+      background: var(--gold);
+      margin: 20px auto 0;
+    }
+
+    /* ── card ──────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 40px;
+      animation: rise 0.6s 0.1s ease both;
+    }
+
+    @media (max-width: 560px) {
+      .card { padding: 24px 18px; }
+    }
+
+    /* ── section label (inside card) ──────────────────── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── divider ───────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 28px 0;
+    }
+
+    /* ── upload zone ───────────────────────────────────── */
+    .upload-zone {
+      position: relative;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--r-sm);
+      background: var(--card2);
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 6px;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.over {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.05);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+      opacity: 0.7;
+    }
+
+    .upload-hint {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .upload-hint strong { color: var(--gold); }
+
+    .file-chip {
+      display: none;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    /* ── textarea ──────────────────────────────────────── */
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus { border-color: var(--gold); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* ── option tabs (Resume / Cover Letter / ATS) ─────── */
+    .tab-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .tab {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 14px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .tab:hover { border-color: var(--gold-dim); color: var(--text); }
+
+    .tab.active {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.08);
+      color: var(--gold);
+    }
+
+    .tab .tab-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+
+    /* ── format toggle (PDF / TXT) ─────────────────────── */
+    .format-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .fmt-btn {
+      flex: 1;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 11px;
+      text-align: center;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .fmt-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+
+    .fmt-btn.active {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.08);
+      color: var(--gold);
+    }
+
+    /* ── generate button ───────────────────────────────── */
+    .btn-main {
+      width: 100%;
+      padding: 17px;
+      margin-top: 24px;
+      border: none;
+      border-radius: var(--r-sm);
+      background: var(--gold);
+      color: var(--ink);
+      font-family: var(--font-head);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-main:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .btn-main:active:not(:disabled) { transform: translateY(0); }
+    .btn-main:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* shimmer while loading */
+    .btn-main::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -80%;
+      width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      display: none;
+      animation: shimmer 1.4s infinite;
+    }
+    .btn-main.busy::after { display: block; }
+
+    /* ── status bar ────────────────────────────────────── */
+    .status {
+      display: none;
+      margin-top: 16px;
+      padding: 13px 16px;
+      border-radius: var(--r-sm);
+      font-size: 14px;
+      font-weight: 500;
+      align-items: center;
+      gap: 10px;
+      animation: rise 0.3s ease both;
+    }
+
+    .status.working {
+      display: flex;
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.3);
+      color: var(--gold);
+    }
+
+    .status.ok {
+      display: flex;
+      background: rgba(76,175,125,0.08);
+      border: 1px solid rgba(76,175,125,0.3);
+      color: var(--green);
+    }
+
+    .status.fail {
+      display: flex;
+      background: rgba(217,95,82,0.08);
+      border: 1px solid rgba(217,95,82,0.3);
+      color: var(--red);
+    }
+
+    .spin {
+      width: 15px; height: 15px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: rotate 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── ATS result panel ──────────────────────────────── */
+    .ats-panel {
+      display: none;
+      margin-top: 28px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 32px;
+      animation: rise 0.4s ease both;
+    }
+
+    .ats-panel h3 {
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--paper);
+      margin-bottom: 24px;
+    }
+
+    /* score ring */
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .score-ring {
+      width: 96px; height: 96px;
+      border-radius: 50%;
+      border: 4px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.5s;
+    }
+
+    .score-ring.excellent { border-color: var(--green); }
+    .score-ring.good      { border-color: var(--gold);  }
+    .score-ring.fair      { border-color: #e6a817;      }
+    .score-ring.poor      { border-color: var(--red);   }
+
+    .score-num {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .score-ring.excellent .score-num { color: var(--green); }
+    .score-ring.good      .score-num { color: var(--gold);  }
+    .score-ring.fair      .score-num { color: #e6a817;      }
+    .score-ring.poor      .score-num { color: var(--red);   }
+
+    .score-lbl {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .score-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .score-level { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 15px; }
+
+    /* keyword tags */
+    .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 24px; }
+
+    .tag-miss {
+      font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 99px;
+      background: rgba(217,95,82,0.12);
+      border: 1px solid rgba(217,95,82,0.35);
+      color: var(--red);
+    }
+
+    .tag-hit {
+      font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 99px;
+      background: rgba(76,175,125,0.1);
+      border: 1px solid rgba(76,175,125,0.3);
+      color: var(--green);
+    }
+
+    /* suggestions */
+    .sug-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+
+    .sug-list li {
+      font-size: 14px;
+      color: var(--text);
+      padding-left: 22px;
+      position: relative;
+    }
+
+    .sug-list li::before {
+      content: '›';
+      position: absolute; left: 0;
+      color: var(--gold);
+      font-size: 18px; line-height: 1.2;
+      font-weight: 700;
+    }
+
+    /* ── format note (ATS hides format row) ────────────── */
+    #formatSection { transition: opacity 0.2s; }
+
+    /* ── tip box ───────────────────────────────────────── */
+    .tip {
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: rgba(201,168,76,0.06);
+      border-left: 3px solid var(--gold-dim);
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      font-size: 13px;
+      color: var(--muted);
+      display: none;
+    }
+
+    .tip.show { display: block; }
+
+    /* ── animations ────────────────────────────────────── */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes rotate { to { transform: rotate(360deg); } }
+
+    @keyframes shimmer { to { left: 130%; } }
+  </style>
+</head>
+
+<body>
+<div class="shell">
+
+  <!-- =========================================================
+       MASTHEAD
+       ========================================================= -->
+  <header class="masthead">
+    <div class="masthead-eyebrow">✦ AI-Powered</div>
+    <h1>Resume<em>Forge</em></h1>
+    <p>Upload your resume. Get an ATS score, optimised PDF, or cover letter — in seconds.</p>
+    <div class="gold-rule"></div>
+  </header>
+
+  <!-- =========================================================
+       MAIN CARD
+       ========================================================= -->
+  <div class="card">
+
+    <!-- ── 1. Upload ──────────────────────────────────────── -->
+    <div class="section-label">01 — Upload Resume</div>
+
+    <div
+      class="upload-zone"
+      id="dropZone"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event)"
+    >
+      <input type="file" id="fileInput" accept=".pdf,.docx,.txt" onchange="onFileChange(event)"/>
+      <span class="upload-icon">📄</span>
+      <div class="upload-hint">
+        <strong>Click to browse</strong> or drag &amp; drop<br/>
+        Accepts PDF, DOCX, or TXT
+      </div>
+      <div class="file-chip" id="fileChip"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 2. Job Description ─────────────────────────────── -->
+    <div class="section-label">02 — Job Description <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(recommended)</span></div>
+
+    <textarea
+      id="jobDesc"
+      placeholder="Paste the job posting here. Used for ATS scoring, resume tailoring, and cover letters."
+    ></textarea>
+
+    <div class="divider"></div>
+
+    <!-- ── 3. Choose task ─────────────────────────────────── -->
+    <div class="section-label">03 — Choose Task</div>
+
+    <div class="tab-row">
+      <div class="tab active" id="tab-resume" onclick="setTab('resume')">
+        <span class="tab-icon">🔧</span>
+        Optimise Resume
+      </div>
+      <div class="tab" id="tab-cover" onclick="setTab('cover')">
+        <span class="tab-icon">✉️</span>
+        Cover Letter
+      </div>
+      <div class="tab" id="tab-ats" onclick="setTab('ats')">
+        <span class="tab-icon">📊</span>
+        ATS Score
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ── 4. Output format (hidden for ATS) ──────────────── -->
+    <div id="formatSection">
+      <div class="section-label">04 — Output Format</div>
+      <div class="format-row">
+        <div class="fmt-btn active" id="fmt-pdf" onclick="setFormat('pdf')">
+          📑 PDF
+        </div>
+        <div class="fmt-btn" id="fmt-txt" onclick="setFormat('txt')">
+          📃 Plain Text (.txt)
+        </div>
+      </div>
+    </div>
+
+    <!-- Tip: shown when PDF selected and pdflatex may be missing -->
+    <div class="tip" id="pdfTip">
+      💡 <strong>PDF tip:</strong> Requires <code>pdflatex</code> installed on your machine.
+      If it's not installed, you'll receive a <code>.tex</code> file instead —
+      paste it into <a href="https://overleaf.com" target="_blank" style="color:var(--gold)">overleaf.com</a> to get your PDF for free.
+    </div>
+
+    <!-- ── Generate button ────────────────────────────────── -->
+    <button class="btn-main" id="genBtn" onclick="generate()">
+      Generate &amp; Download ✦
+    </button>
+
+    <!-- ── Status bar ─────────────────────────────────────── -->
+    <div class="status" id="statusBar">
+      <div class="spin" id="spinEl"></div>
+      <span id="statusMsg">Working…</span>
+    </div>
+
+    <!-- ── ATS result panel (shown only for ATS mode) ─────── -->
+    <div class="ats-panel" id="atsPanel">
+      <h3>ATS Score Report</h3>
+
+      <div class="score-row">
+        <div class="score-ring" id="scoreRing">
+          <div class="score-num" id="scoreNum">—</div>
+          <div class="score-lbl">Score</div>
+        </div>
+        <div>
+          <div class="score-level" id="scoreLevel">—</div>
+          <div class="score-desc" id="scoreDesc">Run the ATS check to see your result.</div>
+        </div>
+      </div>
+
+      <!-- Matched keywords -->
+      <div class="section-label" style="margin-bottom:10px">Matched Keywords</div>
+      <div class="tags" id="matchedTags"></div>
+
+      <!-- Missing keywords -->
+      <div class="section-label" style="margin-bottom:10px">Missing Keywords</div>
+      <div class="tags" id="missingTags"></div>
+
+      <div class="divider"></div>
+
+      <!-- Suggestions -->
+      <div class="section-label" style="margin-bottom:10px">Suggestions</div>
+      <ul class="sug-list" id="sugList"></ul>
+    </div>
+
+  </div><!-- /.card -->
+</div><!-- /.shell -->
+
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+<script>
+  // ── Config — change this if FastAPI runs on a different port ──
+  const API = "http://localhost:8000";
+
+  // ── State ──────────────────────────────────────────────────
+  let currentTab    = "resume";   // "resume" | "cover" | "ats"
+  let currentFormat = "pdf";      // "pdf"    | "txt"
+
+  // ── Tab selection ───────────────────────────────────────────
+  function setTab(tab) {
+    currentTab = tab;
+    ["resume","cover","ats"].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle("active", t === tab);
+    });
+    // Hide format row for ATS (it always returns JSON)
+    const fmtSec = document.getElementById("formatSection");
+    fmtSec.style.opacity       = tab === "ats" ? "0.3" : "1";
+    fmtSec.style.pointerEvents = tab === "ats" ? "none" : "auto";
+
+    // Hide ATS panel when switching away
+    if (tab !== "ats") {
+      document.getElementById("atsPanel").style.display = "none";
+    }
+    updatePdfTip();
+  }
+
+  // ── Format selection ────────────────────────────────────────
+  function setFormat(fmt) {
+    currentFormat = fmt;
+    document.getElementById("fmt-pdf").classList.toggle("active", fmt === "pdf");
+    document.getElementById("fmt-txt").classList.toggle("active", fmt === "txt");
+    updatePdfTip();
+  }
+
+  function updatePdfTip() {
+    const tip = document.getElementById("pdfTip");
+    tip.classList.toggle("show", currentFormat === "pdf" && currentTab !== "ats");
+  }
+  updatePdfTip(); // run on load
+
+  // ── Drag-and-drop handlers ──────────────────────────────────
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById("dropZone").classList.add("over");
+  }
+  function onDragLeave() {
+    document.getElementById("dropZone").classList.remove("over");
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById("dropZone").classList.remove("over");
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    // push the dropped file into the hidden <input>
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    document.getElementById("fileInput").files = dt.files;
+    showFileChip(f);
+  }
+  function onFileChange(e) {
+    const f = e.target.files[0];
+    if (f) showFileChip(f);
+  }
+  function showFileChip(f) {
+    const chip = document.getElementById("fileChip");
+    chip.style.display = "block";
+    chip.textContent   = `✓  ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+  }
+
+  // ── Status helpers ──────────────────────────────────────────
+  function setStatus(type, msg) {
+    // type: "working" | "ok" | "fail" | "hide"
+    const bar  = document.getElementById("statusBar");
+    const spin = document.getElementById("spinEl");
+    bar.className = "status";
+    if (type === "hide") { bar.style.display = "none"; return; }
+    bar.classList.add(type);
+    document.getElementById("statusMsg").textContent = msg;
+    spin.style.display = type === "working" ? "block" : "none";
+  }
+
+  // ── Main generate function ──────────────────────────────────
+  async function generate() {
+    const fileInput = document.getElementById("fileInput");
+    const jobDesc   = document.getElementById("jobDesc").value.trim();
+    const btn       = document.getElementById("genBtn");
+
+    // Must have a file
+    if (!fileInput.files || fileInput.files.length === 0) {
+      setStatus("fail", "⚠  Please upload your resume file first.");
+      return;
+    }
+
+    // UI: busy state
+    btn.disabled = true;
+    btn.classList.add("busy");
+    btn.textContent = "Processing…";
+    setStatus("working", "Sending to AI — this usually takes 10–20 seconds…");
+    document.getElementById("atsPanel").style.display = "none";
+
+    // Build the form data
+    const form = new FormData();
+    form.append("file",            fileInput.files[0]);
+    form.append("job_description", jobDesc);
+    form.append("option",          currentTab);
+    form.append("output_format",   currentFormat);
+
+    try {
+      const res = await fetch(`${API}/generate`, { method: "POST", body: form });
+
+      // Handle server-side errors
+      if (!res.ok) {
+        let msg = `Server error (${res.status})`;
+        try { const j = await res.json(); msg = j.detail || msg; } catch(_){}
+        throw new Error(msg);
+      }
+
+      const ctype = res.headers.get("Content-Type") || "";
+
+      // ── ATS: render the score panel ─────────────────────
+      if (ctype.includes("application/json")) {
+        const data = await res.json();
+        renderAts(data);
+        setStatus("ok", "✓  ATS analysis complete.");
+
+      } else {
+        // ── File download ─────────────────────────────────
+        const blob      = await res.blob();
+        const disp      = res.headers.get("Content-Disposition") || "";
+        const fallback  = res.headers.get("X-Fallback");
+
+        // Extract filename from Content-Disposition header
+        const m = disp.match(/filename="?([^"]+)"?/);
+        let filename = m ? m[1]
+          : currentTab === "cover"
+            ? `cover_letter.${currentFormat}`
+            : `resume.${currentFormat}`;
+
+        if (fallback) {
+          // PDF fell back to LaTeX
+          setStatus("ok",
+            "✓ Done! pdflatex not found — downloaded as .tex instead. " +
+            "Open it at overleaf.com for free PDF conversion."
+          );
+        } else {
+          setStatus("ok", `✓ Done! Downloading ${filename}…`);
+        }
+        triggerDownload(blob, filename);
+      }
+
+    } catch(err) {
+      setStatus("fail", `✗  ${err.message}`);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove("busy");
+      btn.textContent = "Generate & Download ✦";
+    }
+  }
+
+  // ── Trigger a Blob download in the browser ──────────────────
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = Object.assign(document.createElement("a"),
+                  { href: url, download: filename });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+
+  // ── Render ATS score panel ───────────────────────────────────
+  function renderAts(data) {
+    document.getElementById("atsPanel").style.display = "block";
+
+    const score = data.score || 0;
+    const level = (data.level || "").toLowerCase();   // excellent | good | fair | poor
+
+    // Score ring
+    const ring = document.getElementById("scoreRing");
+    ring.className = `score-ring ${level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor")}`;
+    document.getElementById("scoreNum").textContent = score;
+
+    // Level + description
+    document.getElementById("scoreLevel").textContent =
+      data.level || (score>=90?"Excellent":score>=70?"Good":score>=50?"Fair":"Poor");
+
+    const descs = {
+      excellent: "Great match! Your resume aligns well with the job description.",
+      good:      "Good match. Adding the missing keywords will strengthen it further.",
+      fair:      "Moderate match. Follow the suggestions below to improve your score.",
+      poor:      "Low match. Significant gaps found — see suggestions to improve."
+    };
+    document.getElementById("scoreDesc").textContent =
+      descs[level] || descs[score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor"];
+
+    // Matched keywords
+    const matchedEl = document.getElementById("matchedTags");
+    matchedEl.innerHTML = "";
+    const matched = data.matched_keywords || [];
+    if (matched.length === 0) {
+      matchedEl.innerHTML = '<span style="color:var(--muted);font-size:13px">None detected</span>';
+    } else {
+      matched.forEach(kw => {
+        const t = document.createElement("span");
+        t.className   = "tag-hit";
+        t.textContent = kw;
+        matchedEl.appendChild(t);
+      });
+    }
+
+    // Missing keywords
+    const missingEl = document.getElementById("missingTags");
+    missingEl.innerHTML = "";
+    const missing = data.missing_keywords || [];
+    if (missing.length === 0) {
+      missingEl.innerHTML = '<span style="color:var(--green);font-size:13px">✓ No critical keywords missing!</span>';
+    } else {
+      missing.forEach(kw => {
+        const t = document.createElement("span");
+        t.className   = "tag-miss";
+        t.textContent = kw;
+        missingEl.appendChild(t);
+      });
+    }
+
+    // Suggestions
+    const sugEl = document.getElementById("sugList");
+    sugEl.innerHTML = "";
+    const sugs = data.suggestions || [];
+    if (sugs.length === 0) {
+      sugEl.innerHTML = "<li>No additional suggestions.</li>";
+    } else {
+      sugs.forEach(s => {
+        const li = document.createElement("li");
+        li.textContent = s;
+        sugEl.appendChild(li);
+      });
+    }
+  }
+</script>
+</body>
+</html>
