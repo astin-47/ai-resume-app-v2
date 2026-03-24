@@ -5,12 +5,17 @@ python-multipart==0.0.9       # required for file uploads in FastAPI
 
 # ── File parsing ───────────────────────────────────────────
 PyPDF2==3.0.1                 # extract text from PDF files
-python-docx==1.1.2            # extract text from DOCX files
+python-docx==1.1.2            # read DOCX input + build styled DOCX output
+lxml>=4.9.0                   # required by python-docx for XML manipulation
+
+# ── PDF export ─────────────────────────────────────────────
+# docx2pdf converts Word documents to PDF using Microsoft Word (Windows/Mac)
+# or LibreOffice (Linux). If neither is installed on your machine, the app
+# automatically falls back to returning the .docx file instead.
+docx2pdf>=0.1.8
 
 # ── AI ─────────────────────────────────────────────────────
-# openai 1.52+ fixes the "proxies" TypeError that appears
-# with newer versions of httpx. Do NOT pin to 1.30.x.
-openai>=1.52.0                # OpenAI Python SDK
+openai>=1.52.0                # OpenAI Python SDK (1.52+ fixes 'proxies' error)
 
 # ── Environment variables ──────────────────────────────────
 python-dotenv==1.0.1          # loads OPENAI_API_KEY from .env file

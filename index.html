@@ -504,7 +504,7 @@
   <header class="masthead">
     <div class="masthead-eyebrow">✦ AI-Powered</div>
     <h1>Resume<em>Forge</em></h1>
-    <p>Upload your resume. Get an ATS score, optimised PDF, or cover letter — in seconds.</p>
+    <p>Upload your resume. Upload your resume. ATS check → optimise → download as Word, PDF, or TXT.</p>
     <div class="gold-rule"></div>
   </header>
 
@@ -567,21 +567,22 @@
     <!-- ── 4. Output format (hidden for ATS) ──────────────── -->
     <div id="formatSection">
       <div class="section-label">04 — Output Format</div>
-      <div class="format-row">
-        <div class="fmt-btn active" id="fmt-pdf" onclick="setFormat('pdf')">
+      <div class="format-row" style="grid-template-columns:repeat(3,1fr);">
+        <div class="fmt-btn active" id="fmt-docx" onclick="setFormat('docx')">
+          📝 Word (.docx)
+        </div>
+        <div class="fmt-btn" id="fmt-pdf" onclick="setFormat('pdf')">
           📑 PDF
         </div>
         <div class="fmt-btn" id="fmt-txt" onclick="setFormat('txt')">
-          📃 Plain Text (.txt)
+          📃 Plain Text
         </div>
       </div>
     </div>
 
-    <!-- Tip: shown when PDF selected and pdflatex may be missing -->
-    <div class="tip" id="pdfTip">
-      💡 <strong>PDF tip:</strong> Requires <code>pdflatex</code> installed on your machine.
-      If it's not installed, you'll receive a <code>.tex</code> file instead —
-      paste it into <a href="https://overleaf.com" target="_blank" style="color:var(--gold)">overleaf.com</a> to get your PDF for free.
+    <!-- Format tip — updates based on selection via JS -->
+    <div class="tip show" id="formatTip">
+      💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly, no extra software needed.
     </div>
 
     <!-- ── Generate button ────────────────────────────────── -->
@@ -633,46 +634,57 @@
      JAVASCRIPT
      ========================================================= -->
 <script>
-  // ── Config — change this if FastAPI runs on a different port ──
+  // ── Config ─────────────────────────────────────────────────
   const API = "http://localhost:8000";
 
   // ── State ──────────────────────────────────────────────────
   let currentTab    = "resume";   // "resume" | "cover" | "ats"
-  let currentFormat = "pdf";      // "pdf"    | "txt"
+  let currentFormat = "docx";     // "docx"   | "pdf"   | "txt"
+
+  // ── Format tip messages ─────────────────────────────────────
+  const FORMAT_TIPS = {
+    docx: "💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly, no extra software needed.",
+    pdf:  "💡 <strong>PDF:</strong> Requires Microsoft Word or LibreOffice installed on the server. If unavailable, a .docx file is returned instead.",
+    txt:  "💡 <strong>Plain Text:</strong> Simple text file — useful if you need to paste your resume into an online application form."
+  };
 
   // ── Tab selection ───────────────────────────────────────────
   function setTab(tab) {
     currentTab = tab;
-    ["resume","cover","ats"].forEach(t => {
-      document.getElementById(`tab-${t}`).classList.toggle("active", t === tab);
-    });
-    // Hide format row for ATS (it always returns JSON)
+    ["resume","cover","ats"].forEach(t =>
+      document.getElementById("tab-" + t).classList.toggle("active", t === tab)
+    );
+    // ATS mode: dim the format section (it always returns JSON, not a file)
     const fmtSec = document.getElementById("formatSection");
     fmtSec.style.opacity       = tab === "ats" ? "0.3" : "1";
     fmtSec.style.pointerEvents = tab === "ats" ? "none" : "auto";
-
-    // Hide ATS panel when switching away
+    // Hide ATS panel when switching away from ATS tab
     if (tab !== "ats") {
       document.getElementById("atsPanel").style.display = "none";
     }
-    updatePdfTip();
+    updateFormatTip();
   }
 
   // ── Format selection ────────────────────────────────────────
   function setFormat(fmt) {
     currentFormat = fmt;
-    document.getElementById("fmt-pdf").classList.toggle("active", fmt === "pdf");
-    document.getElementById("fmt-txt").classList.toggle("active", fmt === "txt");
-    updatePdfTip();
+    ["docx","pdf","txt"].forEach(f =>
+      document.getElementById("fmt-" + f).classList.toggle("active", f === fmt)
+    );
+    updateFormatTip();
   }
 
-  function updatePdfTip() {
-    const tip = document.getElementById("pdfTip");
-    tip.classList.toggle("show", currentFormat === "pdf" && currentTab !== "ats");
+  // ── Update the tip below the format buttons ─────────────────
+  function updateFormatTip() {
+    const tip = document.getElementById("formatTip");
+    if (!tip) return;
+    tip.innerHTML = FORMAT_TIPS[currentFormat] || "";
+    // Hide tip when ATS is selected (no format needed)
+    tip.classList.toggle("show", currentTab !== "ats");
   }
-  updatePdfTip(); // run on load
+  updateFormatTip();   // run on page load
 
-  // ── Drag-and-drop handlers ──────────────────────────────────
+  // ── Drag-and-drop ───────────────────────────────────────────
   function onDragOver(e) {
     e.preventDefault();
     document.getElementById("dropZone").classList.add("over");
@@ -685,7 +697,6 @@
     document.getElementById("dropZone").classList.remove("over");
     const f = e.dataTransfer.files[0];
     if (!f) return;
-    // push the dropped file into the hidden <input>
     const dt = new DataTransfer();
     dt.items.add(f);
     document.getElementById("fileInput").files = dt.files;
@@ -698,10 +709,10 @@
   function showFileChip(f) {
     const chip = document.getElementById("fileChip");
     chip.style.display = "block";
-    chip.textContent   = `✓  ${f.name}  (${(f.size/1024).toFixed(1)} KB)`;
+    chip.textContent   = "✓  " + f.name + "  (" + (f.size/1024).toFixed(1) + " KB)";
   }
 
-  // ── Status helpers ──────────────────────────────────────────
+  // ── Status bar ──────────────────────────────────────────────
   function setStatus(type, msg) {
     // type: "working" | "ok" | "fail" | "hide"
     const bar  = document.getElementById("statusBar");
@@ -713,26 +724,33 @@
     spin.style.display = type === "working" ? "block" : "none";
   }
 
-  // ── Main generate function ──────────────────────────────────
+  // ── Main generate / download function ──────────────────────
   async function generate() {
     const fileInput = document.getElementById("fileInput");
     const jobDesc   = document.getElementById("jobDesc").value.trim();
     const btn       = document.getElementById("genBtn");
 
-    // Must have a file
     if (!fileInput.files || fileInput.files.length === 0) {
       setStatus("fail", "⚠  Please upload your resume file first.");
       return;
     }
 
-    // UI: busy state
+    // Working state
     btn.disabled = true;
     btn.classList.add("busy");
     btn.textContent = "Processing…";
-    setStatus("working", "Sending to AI — this usually takes 10–20 seconds…");
+
+    // Show relevant working message for resume mode (it runs 2 AI calls)
+    if (currentTab === "resume") {
+      setStatus("working", "Running ATS check then rewriting your resume — this takes 20-30 seconds…");
+    } else if (currentTab === "cover") {
+      setStatus("working", "Analysing job fit then writing your cover letter…");
+    } else {
+      setStatus("working", "Running ATS analysis…");
+    }
+
     document.getElementById("atsPanel").style.display = "none";
 
-    // Build the form data
     const form = new FormData();
     form.append("file",            fileInput.files[0]);
     form.append("job_description", jobDesc);
@@ -740,50 +758,54 @@
     form.append("output_format",   currentFormat);
 
     try {
-      const res = await fetch(`${API}/generate`, { method: "POST", body: form });
+      const res = await fetch(API + "/generate", { method: "POST", body: form });
 
-      // Handle server-side errors
       if (!res.ok) {
-        let msg = `Server error (${res.status})`;
-        try { const j = await res.json(); msg = j.detail || msg; } catch(_){}
+        let msg = "Server error (" + res.status + ")";
+        try { const j = await res.json(); msg = j.detail || msg; } catch(_) {}
         throw new Error(msg);
       }
 
-      const ctype = res.headers.get("Content-Type") || "";
+      const ctype    = res.headers.get("Content-Type") || "";
+      const fallback = res.headers.get("X-Fallback")   || "";
 
-      // ── ATS: render the score panel ─────────────────────
+      // ── ATS: show score panel ──────────────────────────────
       if (ctype.includes("application/json")) {
         const data = await res.json();
         renderAts(data);
         setStatus("ok", "✓  ATS analysis complete.");
 
       } else {
-        // ── File download ─────────────────────────────────
-        const blob      = await res.blob();
-        const disp      = res.headers.get("Content-Disposition") || "";
-        const fallback  = res.headers.get("X-Fallback");
+        // ── File: trigger download ─────────────────────────
+        const blob = await res.blob();
+        const disp = res.headers.get("Content-Disposition") || "";
+        const m    = disp.match(/filename="?([^"]+)"?/);
 
-        // Extract filename from Content-Disposition header
-        const m = disp.match(/filename="?([^"]+)"?/);
-        let filename = m ? m[1]
-          : currentTab === "cover"
-            ? `cover_letter.${currentFormat}`
-            : `resume.${currentFormat}`;
+        // Determine actual filename
+        let filename;
+        if (m) {
+          filename = m[1];
+        } else {
+          const ext = currentFormat === "pdf" ? "pdf"
+                    : currentFormat === "txt" ? "txt" : "docx";
+          filename = (currentTab === "cover" ? "cover_letter" : "resume") + "." + ext;
+        }
 
-        if (fallback) {
-          // PDF fell back to LaTeX
+        // Handle fallback: PDF was requested but Word/LibreOffice not installed
+        if (fallback === "pdf-unavailable") {
           setStatus("ok",
-            "✓ Done! pdflatex not found — downloaded as .tex instead. " +
-            "Open it at overleaf.com for free PDF conversion."
+            "✓ Done! PDF conversion requires Microsoft Word or LibreOffice installed on your machine. " +
+            "Downloaded as .docx instead — open it and export to PDF from Word."
           );
         } else {
-          setStatus("ok", `✓ Done! Downloading ${filename}…`);
+          setStatus("ok", "✓ Done! Downloading " + filename + "…");
         }
+
         triggerDownload(blob, filename);
       }
 
     } catch(err) {
-      setStatus("fail", `✗  ${err.message}`);
+      setStatus("fail", "✗  " + err.message);
       console.error(err);
     } finally {
       btn.disabled = false;
@@ -792,76 +814,63 @@
     }
   }
 
-  // ── Trigger a Blob download in the browser ──────────────────
+  // ── Blob download helper ────────────────────────────────────
   function triggerDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
-    const a   = Object.assign(document.createElement("a"),
-                  { href: url, download: filename });
+    const a   = Object.assign(document.createElement("a"), { href: url, download: filename });
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
 
-  // ── Render ATS score panel ───────────────────────────────────
+  // ── Render ATS score panel ──────────────────────────────────
   function renderAts(data) {
     document.getElementById("atsPanel").style.display = "block";
 
-    const score = data.score || 0;
-    const level = (data.level || "").toLowerCase();   // excellent | good | fair | poor
+    const score = data.score  || 0;
+    const level = (data.level || "").toLowerCase();
+    const cls   = level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor");
 
-    // Score ring
-    const ring = document.getElementById("scoreRing");
-    ring.className = `score-ring ${level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor")}`;
+    document.getElementById("scoreRing").className = "score-ring " + cls;
     document.getElementById("scoreNum").textContent = score;
-
-    // Level + description
-    document.getElementById("scoreLevel").textContent =
-      data.level || (score>=90?"Excellent":score>=70?"Good":score>=50?"Fair":"Poor");
+    document.getElementById("scoreLevel").textContent = data.level ||
+      (score>=90?"Excellent":score>=70?"Good":score>=50?"Fair":"Poor");
 
     const descs = {
       excellent: "Great match! Your resume aligns well with the job description.",
       good:      "Good match. Adding the missing keywords will strengthen it further.",
       fair:      "Moderate match. Follow the suggestions below to improve your score.",
-      poor:      "Low match. Significant gaps found — see suggestions to improve."
+      poor:      "Low match. Significant gaps — see suggestions to improve."
     };
-    document.getElementById("scoreDesc").textContent =
-      descs[level] || descs[score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor"];
+    document.getElementById("scoreDesc").textContent = descs[cls] || descs["fair"];
 
     // Matched keywords
-    const matchedEl = document.getElementById("matchedTags");
-    matchedEl.innerHTML = "";
-    const matched = data.matched_keywords || [];
-    if (matched.length === 0) {
-      matchedEl.innerHTML = '<span style="color:var(--muted);font-size:13px">None detected</span>';
-    } else {
-      matched.forEach(kw => {
-        const t = document.createElement("span");
-        t.className   = "tag-hit";
-        t.textContent = kw;
-        matchedEl.appendChild(t);
-      });
-    }
+    const matchEl = document.getElementById("matchedTags");
+    matchEl.innerHTML = "";
+    (data.matched_keywords || []).forEach(kw => {
+      const t = document.createElement("span");
+      t.className = "tag-hit"; t.textContent = kw;
+      matchEl.appendChild(t);
+    });
+    if (!matchEl.children.length)
+      matchEl.innerHTML = "<span style='color:var(--muted);font-size:13px'>None detected</span>";
 
     // Missing keywords
-    const missingEl = document.getElementById("missingTags");
-    missingEl.innerHTML = "";
-    const missing = data.missing_keywords || [];
-    if (missing.length === 0) {
-      missingEl.innerHTML = '<span style="color:var(--green);font-size:13px">✓ No critical keywords missing!</span>';
-    } else {
-      missing.forEach(kw => {
-        const t = document.createElement("span");
-        t.className   = "tag-miss";
-        t.textContent = kw;
-        missingEl.appendChild(t);
-      });
-    }
+    const missEl = document.getElementById("missingTags");
+    missEl.innerHTML = "";
+    (data.missing_keywords || []).forEach(kw => {
+      const t = document.createElement("span");
+      t.className = "tag-miss"; t.textContent = kw;
+      missEl.appendChild(t);
+    });
+    if (!missEl.children.length)
+      missEl.innerHTML = "<span style='color:var(--green);font-size:13px'>✓ No critical keywords missing!</span>";
 
     // Suggestions
     const sugEl = document.getElementById("sugList");
     sugEl.innerHTML = "";
     const sugs = data.suggestions || [];
-    if (sugs.length === 0) {
+    if (!sugs.length) {
       sugEl.innerHTML = "<li>No additional suggestions.</li>";
     } else {
       sugs.forEach(s => {
