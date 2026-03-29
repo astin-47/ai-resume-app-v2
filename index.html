@@ -644,7 +644,7 @@
   // LOCAL:      set window.API_BASE before this script, or it uses localhost
   // PRODUCTION: Vercel injects the env variable at build time via _config.js
   //             (see vercel.json — it serves /api-config.js with the real URL)
-  const API = window.__API_BASE__ || "http://localhost:8000";
+  const API = "https://ai-resume-app-v2.onrender.com";
 
   // ── State ──────────────────────────────────────────────────
   let currentTab    = "resume";   // "resume" | "cover" | "ats"
