@@ -4,35 +4,24 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ResumeForge — AI Resume Builder</title>
-  <!--
-    api-config.js is served by Vercel (see vercel.json rewrites).
-    It sets  window.__API_BASE__  to your Render backend URL.
-    Locally the file does not exist — the fallback localhost is used.
-  -->
-  <script src="/api-config.js" onerror="console.log('Local mode — using localhost')"></script>
-
-  <!--
-    Fonts:
-      Playfair Display  — editorial, high-contrast serif for headings
-      Instrument Sans   — refined, humanist sans for body text
-  -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
+  <!--
+    Supabase JS SDK loaded from CDN.
+    This handles sign up, login, logout, and gives us the
+    JWT access token we send to the backend with every request.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
-    /* =====================================================
-       DESIGN LANGUAGE
-       Dark editorial — like a high-end print magazine
-       translated into UI. Cream on charcoal, gold accents,
-       tight typography, sharp dividers.
-       ===================================================== */
     :root {
       --ink:       #0e0e0e;
-      --paper:     #f5f0e8;      /* warm cream */
+      --paper:     #f5f0e8;
       --card:      #1a1a1a;
       --card2:     #242424;
       --border:    #2e2e2e;
-      --gold:      #c9a84c;      /* the ONE accent colour */
+      --gold:      #c9a84c;
       --gold-dim:  #7a5f22;
       --red:       #d95f52;
       --green:     #4caf7d;
@@ -54,27 +43,28 @@
       font-size: 15px;
       line-height: 1.65;
       min-height: 100vh;
-      /* subtle noise texture */
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
     }
 
-    /* ── layout shell ──────────────────────────────────── */
+    /* ── Pages (auth vs app) ─────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Shared shell ────────────────────────────────────── */
     .shell {
       max-width: 780px;
       margin: 0 auto;
       padding: 56px 24px 100px;
     }
 
-    /* ── masthead ──────────────────────────────────────── */
+    /* ── Masthead ─────────────────────────────────────────── */
     .masthead {
       text-align: center;
       margin-bottom: 52px;
       animation: rise 0.7s ease both;
     }
-
     .masthead-eyebrow {
       display: inline-block;
-      font-family: var(--font-body);
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.22em;
@@ -85,7 +75,6 @@
       border-radius: 99px;
       margin-bottom: 22px;
     }
-
     .masthead h1 {
       font-family: var(--font-head);
       font-size: clamp(38px, 7vw, 64px);
@@ -95,41 +84,29 @@
       color: var(--paper);
       margin-bottom: 14px;
     }
+    .masthead h1 em { font-style: italic; color: var(--gold); }
+    .masthead p { color: var(--muted); font-size: 15px; max-width: 400px; margin: 0 auto; }
+    .gold-rule { width: 48px; height: 2px; background: var(--gold); margin: 20px auto 0; }
 
-    .masthead h1 em {
-      font-style: italic;
-      color: var(--gold);
-    }
-
-    .masthead p {
-      color: var(--muted);
-      font-size: 15px;
-      max-width: 400px;
-      margin: 0 auto;
-    }
-
-    /* ── gold rule ─────────────────────────────────────── */
-    .gold-rule {
-      width: 48px;
-      height: 2px;
-      background: var(--gold);
-      margin: 20px auto 0;
-    }
-
-    /* ── card ──────────────────────────────────────────── */
+    /* ── Card ─────────────────────────────────────────────── */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--r);
       padding: 40px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.45);
       animation: rise 0.6s 0.1s ease both;
     }
+    @media (max-width: 560px) { .card { padding: 24px 18px; } }
 
-    @media (max-width: 560px) {
-      .card { padding: 24px 18px; }
+    /* ── Auth card (narrower) ─────────────────────────────── */
+    .auth-shell {
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 56px 24px 80px;
     }
 
-    /* ── section label (inside card) ──────────────────── */
+    /* ── Section label ────────────────────────────────────── */
     .section-label {
       font-size: 10px;
       font-weight: 600;
@@ -141,22 +118,38 @@
       align-items: center;
       gap: 8px;
     }
+    .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
-    .section-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
+    /* ── Divider ──────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+    /* ── Form inputs ──────────────────────────────────────── */
+    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
-
-    /* ── divider ───────────────────────────────────────── */
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 28px 0;
+    input[type="email"],
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      padding: 13px 16px;
+      outline: none;
+      transition: border-color 0.2s;
     }
+    input:focus { border-color: var(--gold); }
+    input::placeholder { color: var(--muted); }
 
-    /* ── upload zone ───────────────────────────────────── */
+    /* ── Upload zone ──────────────────────────────────────── */
     .upload-zone {
       position: relative;
       border: 1.5px dashed var(--border);
@@ -168,45 +161,20 @@
       transition: border-color 0.2s, background 0.2s;
       margin-bottom: 6px;
     }
-
-    .upload-zone:hover,
-    .upload-zone.over {
+    .upload-zone:hover, .upload-zone.over {
       border-color: var(--gold);
       background: rgba(201,168,76,0.05);
     }
-
     .upload-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
+      position: absolute; inset: 0; opacity: 0;
+      cursor: pointer; width: 100%; height: 100%;
     }
-
-    .upload-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-      display: block;
-      opacity: 0.7;
-    }
-
-    .upload-hint {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
+    .upload-icon { font-size: 28px; margin-bottom: 8px; display: block; opacity: 0.7; }
+    .upload-hint { font-size: 13px; color: var(--muted); }
     .upload-hint strong { color: var(--gold); }
+    .file-chip { display:none; margin-top:10px; font-size:13px; color:var(--green); font-weight:500; }
 
-    .file-chip {
-      display: none;
-      margin-top: 10px;
-      font-size: 13px;
-      color: var(--green);
-      font-weight: 500;
-    }
-
-    /* ── textarea ──────────────────────────────────────── */
+    /* ── Textarea ─────────────────────────────────────────── */
     textarea {
       width: 100%;
       min-height: 120px;
@@ -222,18 +190,11 @@
       outline: none;
       transition: border-color 0.2s;
     }
-
     textarea:focus { border-color: var(--gold); }
     textarea::placeholder { color: var(--muted); }
 
-    /* ── option tabs (Resume / Cover Letter / ATS) ─────── */
-    .tab-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
+    /* ── Tabs ─────────────────────────────────────────────── */
+    .tab-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
     .tab {
       background: var(--card2);
       border: 1px solid var(--border);
@@ -241,31 +202,19 @@
       padding: 14px 8px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.2s, background 0.2s, color 0.2s;
       font-family: var(--font-body);
       font-size: 13px;
       font-weight: 500;
       color: var(--muted);
       user-select: none;
+      transition: all 0.2s;
     }
-
     .tab:hover { border-color: var(--gold-dim); color: var(--text); }
-
-    .tab.active {
-      border-color: var(--gold);
-      background: rgba(201,168,76,0.08);
-      color: var(--gold);
-    }
-
+    .tab.active { border-color: var(--gold); background: rgba(201,168,76,0.08); color: var(--gold); }
     .tab .tab-icon { font-size: 20px; display: block; margin-bottom: 4px; }
 
-    /* ── format toggle (PDF / TXT) ─────────────────────── */
-    .format-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
+    /* ── Format buttons ───────────────────────────────────── */
+    .format-row { display: flex; gap: 8px; margin-top: 4px; }
     .fmt-btn {
       flex: 1;
       background: var(--card2);
@@ -281,20 +230,14 @@
       transition: all 0.2s;
       user-select: none;
     }
-
     .fmt-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+    .fmt-btn.active { border-color: var(--gold); background: rgba(201,168,76,0.08); color: var(--gold); }
 
-    .fmt-btn.active {
-      border-color: var(--gold);
-      background: rgba(201,168,76,0.08);
-      color: var(--gold);
-    }
-
-    /* ── generate button ───────────────────────────────── */
+    /* ── Buttons ──────────────────────────────────────────── */
     .btn-main {
       width: 100%;
-      padding: 17px;
-      margin-top: 24px;
+      padding: 16px;
+      margin-top: 8px;
       border: none;
       border-radius: var(--r-sm);
       background: var(--gold);
@@ -302,593 +245,713 @@
       font-family: var(--font-head);
       font-size: 17px;
       font-weight: 700;
-      letter-spacing: 0.01em;
       cursor: pointer;
       transition: opacity 0.2s, transform 0.15s;
       position: relative;
       overflow: hidden;
     }
-
     .btn-main:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
     .btn-main:active:not(:disabled) { transform: translateY(0); }
     .btn-main:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* shimmer while loading */
     .btn-main::after {
-      content: '';
-      position: absolute;
-      top: 0; left: -80%;
-      width: 50%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      display: none;
-      animation: shimmer 1.4s infinite;
+      content: ''; position: absolute; top:0; left:-80%;
+      width:50%; height:100%;
+      background: linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+      display: none; animation: shimmer 1.4s infinite;
     }
     .btn-main.busy::after { display: block; }
 
-    /* ── status bar ────────────────────────────────────── */
-    .status {
-      display: none;
-      margin-top: 16px;
-      padding: 13px 16px;
-      border-radius: var(--r-sm);
-      font-size: 14px;
-      font-weight: 500;
-      align-items: center;
-      gap: 10px;
-      animation: rise 0.3s ease both;
-    }
-
-    .status.working {
-      display: flex;
-      background: rgba(201,168,76,0.08);
-      border: 1px solid rgba(201,168,76,0.3);
-      color: var(--gold);
-    }
-
-    .status.ok {
-      display: flex;
-      background: rgba(76,175,125,0.08);
-      border: 1px solid rgba(76,175,125,0.3);
-      color: var(--green);
-    }
-
-    .status.fail {
-      display: flex;
-      background: rgba(217,95,82,0.08);
-      border: 1px solid rgba(217,95,82,0.3);
-      color: var(--red);
-    }
-
-    .spin {
-      width: 15px; height: 15px;
-      border: 2px solid currentColor;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: rotate 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-
-    /* ── ATS result panel ──────────────────────────────── */
-    .ats-panel {
-      display: none;
-      margin-top: 28px;
-      background: var(--card2);
+    .btn-ghost {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
       border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 32px;
-      animation: rise 0.4s ease both;
-    }
-
-    .ats-panel h3 {
-      font-family: var(--font-head);
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--paper);
-      margin-bottom: 24px;
-    }
-
-    /* score ring */
-    .score-row {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      margin-bottom: 28px;
-    }
-
-    .score-ring {
-      width: 96px; height: 96px;
-      border-radius: 50%;
-      border: 4px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: border-color 0.5s;
-    }
-
-    .score-ring.excellent { border-color: var(--green); }
-    .score-ring.good      { border-color: var(--gold);  }
-    .score-ring.fair      { border-color: #e6a817;      }
-    .score-ring.poor      { border-color: var(--red);   }
-
-    .score-num {
-      font-family: var(--font-head);
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .score-ring.excellent .score-num { color: var(--green); }
-    .score-ring.good      .score-num { color: var(--gold);  }
-    .score-ring.fair      .score-num { color: #e6a817;      }
-    .score-ring.poor      .score-num { color: var(--red);   }
-
-    .score-lbl {
-      font-size: 9px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      border-radius: var(--r-sm);
+      background: transparent;
       color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .score-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
-    .score-level { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 15px; }
-
-    /* keyword tags */
-    .tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 24px; }
-
-    .tag-miss {
-      font-size: 12px; font-weight: 600;
-      padding: 4px 12px; border-radius: 99px;
-      background: rgba(217,95,82,0.12);
-      border: 1px solid rgba(217,95,82,0.35);
-      color: var(--red);
-    }
-
-    .tag-hit {
-      font-size: 12px; font-weight: 600;
-      padding: 4px 12px; border-radius: 99px;
-      background: rgba(76,175,125,0.1);
-      border: 1px solid rgba(76,175,125,0.3);
-      color: var(--green);
-    }
-
-    /* suggestions */
-    .sug-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
-
-    .sug-list li {
+      font-family: var(--font-body);
       font-size: 14px;
-      color: var(--text);
-      padding-left: 22px;
-      position: relative;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
     }
+    .btn-ghost:hover { border-color: var(--gold-dim); color: var(--text); }
 
-    .sug-list li::before {
-      content: '›';
-      position: absolute; left: 0;
-      color: var(--gold);
-      font-size: 18px; line-height: 1.2;
-      font-weight: 700;
-    }
-
-    /* ── format note (ATS hides format row) ────────────── */
-    #formatSection { transition: opacity 0.2s; }
-
-    /* ── tip box ───────────────────────────────────────── */
-    .tip {
+    /* ── Auth toggle link ─────────────────────────────────── */
+    .auth-toggle {
+      text-align: center;
       margin-top: 20px;
-      padding: 12px 16px;
-      background: rgba(201,168,76,0.06);
-      border-left: 3px solid var(--gold-dim);
-      border-radius: 0 var(--r-sm) var(--r-sm) 0;
       font-size: 13px;
       color: var(--muted);
-      display: none;
+    }
+    .auth-toggle a {
+      color: var(--gold);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
     }
 
-    .tip.show { display: block; }
-
-    /* ── animations ────────────────────────────────────── */
-    @keyframes rise {
-      from { opacity: 0; transform: translateY(14px); }
-      to   { opacity: 1; transform: translateY(0); }
+    /* ── Navbar (shown when logged in) ───────────────────── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
+    .navbar-brand {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--paper);
+    }
+    .navbar-brand em { font-style: italic; color: var(--gold); }
+    .navbar-right { display: flex; align-items: center; gap: 16px; }
+    .user-email { font-size: 13px; color: var(--muted); }
+    .btn-logout {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 16px;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
 
-    @keyframes rotate { to { transform: rotate(360deg); } }
+    /* ── Status bar ───────────────────────────────────────── */
+    .status { display:none; margin-top:16px; padding:13px 16px; border-radius:var(--r-sm); font-size:14px; font-weight:500; align-items:center; gap:10px; animation:rise 0.3s ease both; }
+    .status.working { display:flex; background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
+    .status.ok { display:flex; background:rgba(76,175,125,0.08); border:1px solid rgba(76,175,125,0.3); color:var(--green); }
+    .status.fail { display:flex; background:rgba(217,95,82,0.08); border:1px solid rgba(217,95,82,0.3); color:var(--red); }
+    .spin { width:15px; height:15px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:rotate 0.8s linear infinite; flex-shrink:0; }
 
-    @keyframes shimmer { to { left: 130%; } }
+    /* ── Tip ──────────────────────────────────────────────── */
+    .tip { margin-top:16px; padding:12px 16px; background:rgba(201,168,76,0.06); border-left:3px solid var(--gold-dim); border-radius:0 var(--r-sm) var(--r-sm) 0; font-size:13px; color:var(--muted); display:none; }
+    .tip.show { display:block; }
+
+    /* ── ATS panel ────────────────────────────────────────── */
+    .ats-panel { display:none; margin-top:28px; background:var(--card2); border:1px solid var(--border); border-radius:var(--r); padding:32px; animation:rise 0.4s ease both; }
+    .ats-panel h3 { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--paper); margin-bottom:24px; }
+    .score-row { display:flex; align-items:center; gap:24px; margin-bottom:28px; }
+    .score-ring { width:96px; height:96px; border-radius:50%; border:4px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; transition:border-color 0.5s; }
+    .score-ring.excellent { border-color:var(--green); }
+    .score-ring.good      { border-color:var(--gold);  }
+    .score-ring.fair      { border-color:#e6a817;      }
+    .score-ring.poor      { border-color:var(--red);   }
+    .score-num { font-family:var(--font-head); font-size:28px; font-weight:900; line-height:1; }
+    .score-ring.excellent .score-num { color:var(--green); }
+    .score-ring.good      .score-num { color:var(--gold);  }
+    .score-ring.fair      .score-num { color:#e6a817;      }
+    .score-ring.poor      .score-num { color:var(--red);   }
+    .score-lbl { font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:2px; }
+    .score-desc { font-size:14px; color:var(--muted); line-height:1.6; }
+    .score-level { font-weight:600; color:var(--text); margin-bottom:4px; font-size:15px; }
+    .tags { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:24px; }
+    .tag-miss { font-size:12px; font-weight:600; padding:4px 12px; border-radius:99px; background:rgba(217,95,82,0.12); border:1px solid rgba(217,95,82,0.35); color:var(--red); }
+    .tag-hit  { font-size:12px; font-weight:600; padding:4px 12px; border-radius:99px; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); }
+    .sug-list { list-style:none; display:flex; flex-direction:column; gap:9px; }
+    .sug-list li { font-size:14px; color:var(--text); padding-left:22px; position:relative; }
+    .sug-list li::before { content:'›'; position:absolute; left:0; color:var(--gold); font-size:18px; line-height:1.2; font-weight:700; }
+
+    /* ── Auth error ───────────────────────────────────────── */
+    .auth-error { display:none; margin-top:12px; padding:12px 16px; background:rgba(217,95,82,0.1); border:1px solid rgba(217,95,82,0.3); border-radius:var(--r-sm); color:var(--red); font-size:13px; }
+    .auth-error.show { display:block; }
+    .auth-success { display:none; margin-top:12px; padding:12px 16px; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:var(--r-sm); color:var(--green); font-size:13px; }
+    .auth-success.show { display:block; }
+
+    /* ── Animations ───────────────────────────────────────── */
+    @keyframes rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes rotate { to{transform:rotate(360deg)} }
+    @keyframes shimmer { to{left:130%} }
   </style>
 </head>
-
 <body>
-<div class="shell">
 
-  <!-- =========================================================
-       MASTHEAD
-       ========================================================= -->
-  <header class="masthead">
-    <div class="masthead-eyebrow">✦ AI-Powered</div>
-    <h1>Resume<em>Forge</em></h1>
-    <p>Upload your resume. Upload your resume. ATS check → optimise → download as Word, PDF, or TXT.</p>
-    <div class="gold-rule"></div>
-  </header>
+<!-- =============================================================
+     PAGE 1 — AUTH  (login & signup)
+     Shown when no user is logged in.
+     ============================================================= -->
+<div id="page-auth" class="page active">
+  <div class="auth-shell">
 
-  <!-- =========================================================
-       MAIN CARD
-       ========================================================= -->
-  <div class="card">
-
-    <!-- ── 1. Upload ──────────────────────────────────────── -->
-    <div class="section-label">01 — Upload Resume</div>
-
-    <div
-      class="upload-zone"
-      id="dropZone"
-      ondragover="onDragOver(event)"
-      ondragleave="onDragLeave(event)"
-      ondrop="onDrop(event)"
-    >
-      <input type="file" id="fileInput" accept=".pdf,.docx,.txt" onchange="onFileChange(event)"/>
-      <span class="upload-icon">📄</span>
-      <div class="upload-hint">
-        <strong>Click to browse</strong> or drag &amp; drop<br/>
-        Accepts PDF, DOCX, or TXT
-      </div>
-      <div class="file-chip" id="fileChip"></div>
+    <!-- Logo -->
+    <div class="masthead" style="margin-bottom:36px">
+      <div class="masthead-eyebrow">✦ AI-Powered</div>
+      <h1>Resume<em>Forge</em></h1>
+      <p id="auth-subtitle">Sign in to build your perfect resume.</p>
+      <div class="gold-rule"></div>
     </div>
 
-    <div class="divider"></div>
+    <!-- Auth Card -->
+    <div class="card">
 
-    <!-- ── 2. Job Description ─────────────────────────────── -->
-    <div class="section-label">02 — Job Description <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(recommended)</span></div>
+      <!-- LOGIN FORM -->
+      <div id="form-login">
+        <div class="section-label">Sign In</div>
 
-    <textarea
-      id="jobDesc"
-      placeholder="Paste the job posting here. Used for ATS scoring, resume tailoring, and cover letters."
-    ></textarea>
-
-    <div class="divider"></div>
-
-    <!-- ── 3. Choose task ─────────────────────────────────── -->
-    <div class="section-label">03 — Choose Task</div>
-
-    <div class="tab-row">
-      <div class="tab active" id="tab-resume" onclick="setTab('resume')">
-        <span class="tab-icon">🔧</span>
-        Optimise Resume
-      </div>
-      <div class="tab" id="tab-cover" onclick="setTab('cover')">
-        <span class="tab-icon">✉️</span>
-        Cover Letter
-      </div>
-      <div class="tab" id="tab-ats" onclick="setTab('ats')">
-        <span class="tab-icon">📊</span>
-        ATS Score
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- ── 4. Output format (hidden for ATS) ──────────────── -->
-    <div id="formatSection">
-      <div class="section-label">04 — Output Format</div>
-      <div class="format-row" style="grid-template-columns:repeat(3,1fr);">
-        <div class="fmt-btn active" id="fmt-docx" onclick="setFormat('docx')">
-          📝 Word (.docx)
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
         </div>
-        <div class="fmt-btn" id="fmt-pdf" onclick="setFormat('pdf')">
-          📑 PDF
+
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password"/>
         </div>
-        <div class="fmt-btn" id="fmt-txt" onclick="setFormat('txt')">
-          📃 Plain Text
-        </div>
-      </div>
-    </div>
 
-    <!-- Format tip — updates based on selection via JS -->
-    <div class="tip show" id="formatTip">
-      💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly, no extra software needed.
-    </div>
+        <div class="auth-error" id="login-error"></div>
 
-    <!-- ── Generate button ────────────────────────────────── -->
-    <button class="btn-main" id="genBtn" onclick="generate()">
-      Generate &amp; Download ✦
-    </button>
+        <button class="btn-main" id="login-btn" onclick="doLogin()">
+          Sign In ✦
+        </button>
 
-    <!-- ── Status bar ─────────────────────────────────────── -->
-    <div class="status" id="statusBar">
-      <div class="spin" id="spinEl"></div>
-      <span id="statusMsg">Working…</span>
-    </div>
-
-    <!-- ── ATS result panel (shown only for ATS mode) ─────── -->
-    <div class="ats-panel" id="atsPanel">
-      <h3>ATS Score Report</h3>
-
-      <div class="score-row">
-        <div class="score-ring" id="scoreRing">
-          <div class="score-num" id="scoreNum">—</div>
-          <div class="score-lbl">Score</div>
-        </div>
-        <div>
-          <div class="score-level" id="scoreLevel">—</div>
-          <div class="score-desc" id="scoreDesc">Run the ATS check to see your result.</div>
+        <div class="auth-toggle">
+          Don't have an account? <a onclick="showSignup()">Create one free</a>
         </div>
       </div>
 
-      <!-- Matched keywords -->
-      <div class="section-label" style="margin-bottom:10px">Matched Keywords</div>
-      <div class="tags" id="matchedTags"></div>
+      <!-- SIGNUP FORM (hidden by default) -->
+      <div id="form-signup" style="display:none">
+        <div class="section-label">Create Account</div>
 
-      <!-- Missing keywords -->
-      <div class="section-label" style="margin-bottom:10px">Missing Keywords</div>
-      <div class="tags" id="missingTags"></div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+
+        <div class="form-group">
+          <label>Password <span style="color:var(--muted);font-weight:400;text-transform:none">(min 6 characters)</span></label>
+          <input type="password" id="signup-password" placeholder="Choose a password" autocomplete="new-password"/>
+        </div>
+
+        <div class="auth-error"   id="signup-error"></div>
+        <div class="auth-success" id="signup-success"></div>
+
+        <button class="btn-main" id="signup-btn" onclick="doSignup()">
+          Create Account ✦
+        </button>
+
+        <div class="auth-toggle">
+          Already have an account? <a onclick="showLogin()">Sign in</a>
+        </div>
+      </div>
+
+    </div><!-- /.card -->
+  </div><!-- /.auth-shell -->
+</div><!-- /#page-auth -->
+
+
+<!-- =============================================================
+     PAGE 2 — APP  (the main resume builder)
+     Shown only when user is logged in.
+     ============================================================= -->
+<div id="page-app" class="page">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-brand">Resume<em>Forge</em></div>
+    <div class="navbar-right">
+      <span class="user-email" id="user-email-display"></span>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- Masthead -->
+    <header class="masthead">
+      <div class="masthead-eyebrow">✦ AI-Powered</div>
+      <h1>Resume<em>Forge</em></h1>
+      <p>Upload your resume. ATS check → optimise → download as Word, PDF, or TXT.</p>
+      <div class="gold-rule"></div>
+    </header>
+
+    <!-- Main Card -->
+    <div class="card">
+
+      <!-- 01 Upload -->
+      <div class="section-label">01 — Upload Resume</div>
+      <div class="upload-zone" id="dropZone"
+           ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" onchange="onFileChange(event)"/>
+        <span class="upload-icon">📄</span>
+        <div class="upload-hint">
+          <strong>Click to browse</strong> or drag &amp; drop<br/>
+          Accepts PDF, DOCX, or TXT
+        </div>
+        <div class="file-chip" id="fileChip"></div>
+      </div>
 
       <div class="divider"></div>
 
-      <!-- Suggestions -->
-      <div class="section-label" style="margin-bottom:10px">Suggestions</div>
-      <ul class="sug-list" id="sugList"></ul>
-    </div>
+      <!-- 02 Job Description -->
+      <div class="section-label">02 — Job Description <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(recommended)</span></div>
+      <textarea id="jobDesc" placeholder="Paste the job posting here. Used for ATS scoring, resume tailoring, and cover letters."></textarea>
 
-  </div><!-- /.card -->
-</div><!-- /.shell -->
+      <div class="divider"></div>
+
+      <!-- 03 Task -->
+      <div class="section-label">03 — Choose Task</div>
+      <div class="tab-row">
+        <div class="tab active" id="tab-resume" onclick="setTab('resume')">
+          <span class="tab-icon">🔧</span>Optimise Resume
+        </div>
+        <div class="tab" id="tab-cover" onclick="setTab('cover')">
+          <span class="tab-icon">✉️</span>Cover Letter
+        </div>
+        <div class="tab" id="tab-ats" onclick="setTab('ats')">
+          <span class="tab-icon">📊</span>ATS Score
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 04 Format -->
+      <div id="formatSection">
+        <div class="section-label">04 — Output Format</div>
+        <div class="format-row" style="grid-template-columns:repeat(3,1fr);">
+          <div class="fmt-btn active" id="fmt-docx" onclick="setFormat('docx')">📝 Word (.docx)</div>
+          <div class="fmt-btn" id="fmt-pdf"  onclick="setFormat('pdf')">📑 PDF</div>
+          <div class="fmt-btn" id="fmt-txt"  onclick="setFormat('txt')">📃 Plain Text</div>
+        </div>
+      </div>
+
+      <div class="tip show" id="formatTip">
+        💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly.
+      </div>
+
+      <!-- Generate button -->
+      <button class="btn-main" id="genBtn" onclick="generate()">
+        Generate &amp; Download ✦
+      </button>
+
+      <!-- Status bar -->
+      <div class="status" id="statusBar">
+        <div class="spin" id="spinEl"></div>
+        <span id="statusMsg">Working…</span>
+      </div>
+
+      <!-- ATS panel -->
+      <div class="ats-panel" id="atsPanel">
+        <h3>ATS Score Report</h3>
+        <div class="score-row">
+          <div class="score-ring" id="scoreRing">
+            <div class="score-num" id="scoreNum">—</div>
+            <div class="score-lbl">Score</div>
+          </div>
+          <div>
+            <div class="score-level" id="scoreLevel">—</div>
+            <div class="score-desc" id="scoreDesc">Run the ATS check to see your result.</div>
+          </div>
+        </div>
+        <div class="section-label" style="margin-bottom:10px">Matched Keywords</div>
+        <div class="tags" id="matchedTags"></div>
+        <div class="section-label" style="margin-bottom:10px">Missing Keywords</div>
+        <div class="tags" id="missingTags"></div>
+        <div class="divider"></div>
+        <div class="section-label" style="margin-bottom:10px">Suggestions</div>
+        <ul class="sug-list" id="sugList"></ul>
+      </div>
+
+    </div><!-- /.card -->
+  </div><!-- /.shell -->
+</div><!-- /#page-app -->
 
 
-<!-- =========================================================
-     JAVASCRIPT
-     ========================================================= -->
 <script>
-  // ── Config ─────────────────────────────────────────────────
-  // LOCAL:      set window.API_BASE before this script, or it uses localhost
-  // PRODUCTION: Vercel injects the env variable at build time via _config.js
-  //             (see vercel.json — it serves /api-config.js with the real URL)
-  const API = "https://ai-resume-app-v2.onrender.com";
+// =============================================================
+//  CONFIG
+//  ▼▼▼ Replace these 3 values with YOUR own ▼▼▼
+// =============================================================
 
-  // ── State ──────────────────────────────────────────────────
-  let currentTab    = "resume";   // "resume" | "cover" | "ats"
-  let currentFormat = "docx";     // "docx"   | "pdf"   | "txt"
+// Your Render backend URL
+const API = "https://ai-resume-app-v2.onrender.com";
 
-  // ── Format tip messages ─────────────────────────────────────
-  const FORMAT_TIPS = {
-    docx: "💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly, no extra software needed.",
-    pdf:  "💡 <strong>PDF:</strong> Requires Microsoft Word or LibreOffice installed on the server. If unavailable, a .docx file is returned instead.",
-    txt:  "💡 <strong>Plain Text:</strong> Simple text file — useful if you need to paste your resume into an online application form."
-  };
+// Your Supabase project URL and anon key
+// Find these in: Supabase dashboard → Settings → API
+const SUPABASE_URL      = "https://wyporeiholkbjmobmvcv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_8k_VHn_fbt7I_TjpPmbBzw_1k7Q9KCF";
 
-  // ── Tab selection ───────────────────────────────────────────
-  function setTab(tab) {
-    currentTab = tab;
-    ["resume","cover","ats"].forEach(t =>
-      document.getElementById("tab-" + t).classList.toggle("active", t === tab)
-    );
-    // ATS mode: dim the format section (it always returns JSON, not a file)
-    const fmtSec = document.getElementById("formatSection");
-    fmtSec.style.opacity       = tab === "ats" ? "0.3" : "1";
-    fmtSec.style.pointerEvents = tab === "ats" ? "none" : "auto";
-    // Hide ATS panel when switching away from ATS tab
-    if (tab !== "ats") {
-      document.getElementById("atsPanel").style.display = "none";
+// =============================================================
+//  SUPABASE CLIENT SETUP
+//  createClient() initialises the Supabase JS SDK.
+//  After this, `sb` has methods like:
+//    sb.auth.signUp()    — create account
+//    sb.auth.signInWithPassword() — login
+//    sb.auth.signOut()   — logout
+//    sb.auth.getSession() — check if already logged in
+// =============================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Holds the current user's access token — sent with every API request
+let accessToken = null;
+
+// =============================================================
+//  PAGE ROUTING — show auth or app based on login state
+// =============================================================
+function showPage(name) {
+  // name: "auth" or "app"
+  document.getElementById("page-auth").classList.toggle("active", name === "auth");
+  document.getElementById("page-app" ).classList.toggle("active", name === "app");
+}
+
+// =============================================================
+//  ON PAGE LOAD — check if user is already logged in
+//  (Supabase stores the session in localStorage automatically)
+// =============================================================
+window.addEventListener("load", async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    // User already has a valid session
+    accessToken = data.session.access_token;
+    document.getElementById("user-email-display").textContent =
+      data.session.user.email;
+    showPage("app");
+  } else {
+    showPage("auth");
+  }
+
+  // Listen for auth changes (login / logout events)
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      accessToken = session.access_token;
+      document.getElementById("user-email-display").textContent = session.user.email;
+      showPage("app");
+    } else {
+      accessToken = null;
+      showPage("auth");
     }
-    updateFormatTip();
+  });
+});
+
+// =============================================================
+//  AUTH FORM SWITCHING
+// =============================================================
+function showLogin() {
+  document.getElementById("form-login").style.display  = "block";
+  document.getElementById("form-signup").style.display = "none";
+  document.getElementById("auth-subtitle").textContent = "Sign in to build your perfect resume.";
+  clearAuthMessages();
+}
+
+function showSignup() {
+  document.getElementById("form-login").style.display  = "none";
+  document.getElementById("form-signup").style.display = "block";
+  document.getElementById("auth-subtitle").textContent = "Create a free account.";
+  clearAuthMessages();
+}
+
+function clearAuthMessages() {
+  ["login-error","signup-error","signup-success"].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = el.className.replace(" show","");
+    el.textContent = "";
+  });
+}
+
+function showAuthError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+function showAuthSuccess(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+// =============================================================
+//  LOGIN
+// =============================================================
+async function doLogin() {
+  const email    = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const btn      = document.getElementById("login-btn");
+
+  if (!email || !password) {
+    showAuthError("login-error", "Please enter your email and password.");
+    return;
   }
 
-  // ── Format selection ────────────────────────────────────────
-  function setFormat(fmt) {
-    currentFormat = fmt;
-    ["docx","pdf","txt"].forEach(f =>
-      document.getElementById("fmt-" + f).classList.toggle("active", f === fmt)
+  btn.disabled    = true;
+  btn.textContent = "Signing in…";
+  clearAuthMessages();
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  btn.disabled    = false;
+  btn.textContent = "Sign In ✦";
+
+  if (error) {
+    showAuthError("login-error", error.message);
+  }
+  // On success, onAuthStateChange fires automatically → showPage("app")
+}
+
+// =============================================================
+//  SIGN UP
+// =============================================================
+async function doSignup() {
+  const email    = document.getElementById("signup-email").value.trim();
+  const password = document.getElementById("signup-password").value;
+  const btn      = document.getElementById("signup-btn");
+
+  if (!email || !password) {
+    showAuthError("signup-error", "Please enter your email and password.");
+    return;
+  }
+  if (password.length < 6) {
+    showAuthError("signup-error", "Password must be at least 6 characters.");
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = "Creating account…";
+  clearAuthMessages();
+
+  const { error } = await sb.auth.signUp({ email, password });
+
+  btn.disabled    = false;
+  btn.textContent = "Create Account ✦";
+
+  if (error) {
+    showAuthError("signup-error", error.message);
+  } else {
+    showAuthSuccess(
+      "signup-success",
+      "✓ Account created! Check your email to confirm, then sign in."
     );
-    updateFormatTip();
+  }
+}
+
+// =============================================================
+//  LOGOUT
+// =============================================================
+async function doLogout() {
+  await sb.auth.signOut();
+  // onAuthStateChange fires → showPage("auth")
+}
+
+// =============================================================
+//  APP — format tips
+// =============================================================
+const FORMAT_TIPS = {
+  docx: "💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly.",
+  pdf:  "💡 <strong>PDF:</strong> Requires Microsoft Word or LibreOffice on the server. Falls back to .docx if unavailable.",
+  txt:  "💡 <strong>Plain Text:</strong> Useful for pasting into online job application forms."
+};
+
+let currentTab    = "resume";
+let currentFormat = "docx";
+
+function setTab(tab) {
+  currentTab = tab;
+  ["resume","cover","ats"].forEach(t =>
+    document.getElementById("tab-"+t).classList.toggle("active", t === tab)
+  );
+  const fs = document.getElementById("formatSection");
+  fs.style.opacity       = tab === "ats" ? "0.3" : "1";
+  fs.style.pointerEvents = tab === "ats" ? "none" : "auto";
+  if (tab !== "ats") document.getElementById("atsPanel").style.display = "none";
+  updateFormatTip();
+}
+
+function setFormat(fmt) {
+  currentFormat = fmt;
+  ["docx","pdf","txt"].forEach(f =>
+    document.getElementById("fmt-"+f).classList.toggle("active", f === fmt)
+  );
+  updateFormatTip();
+}
+
+function updateFormatTip() {
+  const tip = document.getElementById("formatTip");
+  tip.innerHTML = FORMAT_TIPS[currentFormat] || "";
+  tip.classList.toggle("show", currentTab !== "ats");
+}
+
+// =============================================================
+//  DRAG AND DROP
+// =============================================================
+function onDragOver(e) { e.preventDefault(); document.getElementById("dropZone").classList.add("over"); }
+function onDragLeave()  { document.getElementById("dropZone").classList.remove("over"); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("dropZone").classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const dt = new DataTransfer(); dt.items.add(f);
+  document.getElementById("fileInput").files = dt.files;
+  showFileChip(f);
+}
+function onFileChange(e) { if (e.target.files[0]) showFileChip(e.target.files[0]); }
+function showFileChip(f) {
+  const c = document.getElementById("fileChip");
+  c.style.display = "block";
+  c.textContent   = "✓  " + f.name + "  (" + (f.size/1024).toFixed(1) + " KB)";
+}
+
+// =============================================================
+//  STATUS BAR
+// =============================================================
+function setStatus(type, msg) {
+  const bar = document.getElementById("statusBar");
+  const spin = document.getElementById("spinEl");
+  bar.className = "status";
+  if (type === "hide") { bar.style.display = "none"; return; }
+  bar.classList.add(type);
+  document.getElementById("statusMsg").textContent = msg;
+  spin.style.display = type === "working" ? "block" : "none";
+}
+
+// =============================================================
+//  GENERATE — main function
+//  Attaches the JWT token to every request so the backend
+//  knows who is calling it.
+// =============================================================
+async function generate() {
+  const fileInput = document.getElementById("fileInput");
+  const jobDesc   = document.getElementById("jobDesc").value.trim();
+  const btn       = document.getElementById("genBtn");
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    setStatus("fail", "⚠  Please upload your resume file first.");
+    return;
   }
 
-  // ── Update the tip below the format buttons ─────────────────
-  function updateFormatTip() {
-    const tip = document.getElementById("formatTip");
-    if (!tip) return;
-    tip.innerHTML = FORMAT_TIPS[currentFormat] || "";
-    // Hide tip when ATS is selected (no format needed)
-    tip.classList.toggle("show", currentTab !== "ats");
-  }
-  updateFormatTip();   // run on page load
-
-  // ── Drag-and-drop ───────────────────────────────────────────
-  function onDragOver(e) {
-    e.preventDefault();
-    document.getElementById("dropZone").classList.add("over");
-  }
-  function onDragLeave() {
-    document.getElementById("dropZone").classList.remove("over");
-  }
-  function onDrop(e) {
-    e.preventDefault();
-    document.getElementById("dropZone").classList.remove("over");
-    const f = e.dataTransfer.files[0];
-    if (!f) return;
-    const dt = new DataTransfer();
-    dt.items.add(f);
-    document.getElementById("fileInput").files = dt.files;
-    showFileChip(f);
-  }
-  function onFileChange(e) {
-    const f = e.target.files[0];
-    if (f) showFileChip(f);
-  }
-  function showFileChip(f) {
-    const chip = document.getElementById("fileChip");
-    chip.style.display = "block";
-    chip.textContent   = "✓  " + f.name + "  (" + (f.size/1024).toFixed(1) + " KB)";
+  // Check still logged in
+  if (!accessToken) {
+    setStatus("fail", "⚠  Session expired. Please sign in again.");
+    showPage("auth");
+    return;
   }
 
-  // ── Status bar ──────────────────────────────────────────────
-  function setStatus(type, msg) {
-    // type: "working" | "ok" | "fail" | "hide"
-    const bar  = document.getElementById("statusBar");
-    const spin = document.getElementById("spinEl");
-    bar.className = "status";
-    if (type === "hide") { bar.style.display = "none"; return; }
-    bar.classList.add(type);
-    document.getElementById("statusMsg").textContent = msg;
-    spin.style.display = type === "working" ? "block" : "none";
-  }
+  btn.disabled = true;
+  btn.classList.add("busy");
+  btn.textContent = "Processing…";
 
-  // ── Main generate / download function ──────────────────────
-  async function generate() {
-    const fileInput = document.getElementById("fileInput");
-    const jobDesc   = document.getElementById("jobDesc").value.trim();
-    const btn       = document.getElementById("genBtn");
+  const msgs = {
+    resume: "Running ATS check then rewriting your resume — takes 20–30 seconds…",
+    cover:  "Analysing job fit then writing your cover letter…",
+    ats:    "Running ATS analysis…"
+  };
+  setStatus("working", msgs[currentTab] || "Working…");
+  document.getElementById("atsPanel").style.display = "none";
 
-    if (!fileInput.files || fileInput.files.length === 0) {
-      setStatus("fail", "⚠  Please upload your resume file first.");
+  const form = new FormData();
+  form.append("file",            fileInput.files[0]);
+  form.append("job_description", jobDesc);
+  form.append("option",          currentTab);
+  form.append("output_format",   currentFormat);
+
+  try {
+    const res = await fetch(API + "/generate", {
+      method: "POST",
+      body:   form,
+      headers: {
+        // ← This is the JWT token — the backend verifies this
+        "Authorization": "Bearer " + accessToken
+      }
+    });
+
+    if (res.status === 401) {
+      setStatus("fail", "Session expired. Please sign in again.");
+      await sb.auth.signOut();
       return;
     }
 
-    // Working state
-    btn.disabled = true;
-    btn.classList.add("busy");
-    btn.textContent = "Processing…";
-
-    // Show relevant working message for resume mode (it runs 2 AI calls)
-    if (currentTab === "resume") {
-      setStatus("working", "Running ATS check then rewriting your resume — this takes 20-30 seconds…");
-    } else if (currentTab === "cover") {
-      setStatus("working", "Analysing job fit then writing your cover letter…");
-    } else {
-      setStatus("working", "Running ATS analysis…");
+    if (!res.ok) {
+      let msg = "Server error (" + res.status + ")";
+      try { const j = await res.json(); msg = j.detail || msg; } catch(_) {}
+      throw new Error(msg);
     }
 
-    document.getElementById("atsPanel").style.display = "none";
+    const ctype    = res.headers.get("Content-Type") || "";
+    const fallback = res.headers.get("X-Fallback")   || "";
 
-    const form = new FormData();
-    form.append("file",            fileInput.files[0]);
-    form.append("job_description", jobDesc);
-    form.append("option",          currentTab);
-    form.append("output_format",   currentFormat);
+    if (ctype.includes("application/json")) {
+      renderAts(await res.json());
+      setStatus("ok", "✓  ATS analysis complete.");
+    } else {
+      const blob = await res.blob();
+      const disp = res.headers.get("Content-Disposition") || "";
+      const m    = disp.match(/filename="?([^"]+)"?/);
+      const ext  = currentFormat === "pdf" ? "pdf" : currentFormat === "txt" ? "txt" : "docx";
+      const name = m ? m[1] : (currentTab === "cover" ? "cover_letter" : "resume") + "." + ext;
 
-    try {
-      const res = await fetch(API + "/generate", { method: "POST", body: form });
-
-      if (!res.ok) {
-        let msg = "Server error (" + res.status + ")";
-        try { const j = await res.json(); msg = j.detail || msg; } catch(_) {}
-        throw new Error(msg);
-      }
-
-      const ctype    = res.headers.get("Content-Type") || "";
-      const fallback = res.headers.get("X-Fallback")   || "";
-
-      // ── ATS: show score panel ──────────────────────────────
-      if (ctype.includes("application/json")) {
-        const data = await res.json();
-        renderAts(data);
-        setStatus("ok", "✓  ATS analysis complete.");
-
+      if (fallback === "pdf-unavailable") {
+        setStatus("ok", "✓ Done! PDF conversion unavailable — downloaded as .docx instead.");
       } else {
-        // ── File: trigger download ─────────────────────────
-        const blob = await res.blob();
-        const disp = res.headers.get("Content-Disposition") || "";
-        const m    = disp.match(/filename="?([^"]+)"?/);
-
-        // Determine actual filename
-        let filename;
-        if (m) {
-          filename = m[1];
-        } else {
-          const ext = currentFormat === "pdf" ? "pdf"
-                    : currentFormat === "txt" ? "txt" : "docx";
-          filename = (currentTab === "cover" ? "cover_letter" : "resume") + "." + ext;
-        }
-
-        // Handle fallback: PDF was requested but Word/LibreOffice not installed
-        if (fallback === "pdf-unavailable") {
-          setStatus("ok",
-            "✓ Done! PDF conversion requires Microsoft Word or LibreOffice installed on your machine. " +
-            "Downloaded as .docx instead — open it and export to PDF from Word."
-          );
-        } else {
-          setStatus("ok", "✓ Done! Downloading " + filename + "…");
-        }
-
-        triggerDownload(blob, filename);
+        setStatus("ok", "✓ Done! Downloading " + name + "…");
       }
-
-    } catch(err) {
-      setStatus("fail", "✗  " + err.message);
-      console.error(err);
-    } finally {
-      btn.disabled = false;
-      btn.classList.remove("busy");
-      btn.textContent = "Generate & Download ✦";
+      triggerDownload(blob, name);
     }
+
+  } catch(err) {
+    setStatus("fail", "✗  " + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove("busy");
+    btn.textContent = "Generate & Download ✦";
   }
+}
 
-  // ── Blob download helper ────────────────────────────────────
-  function triggerDownload(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a   = Object.assign(document.createElement("a"), { href: url, download: filename });
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
-  }
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = Object.assign(document.createElement("a"), { href:url, download:filename });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
 
-  // ── Render ATS score panel ──────────────────────────────────
-  function renderAts(data) {
-    document.getElementById("atsPanel").style.display = "block";
+// =============================================================
+//  RENDER ATS PANEL
+// =============================================================
+function renderAts(data) {
+  document.getElementById("atsPanel").style.display = "block";
+  const score = data.score || 0;
+  const level = (data.level || "").toLowerCase();
+  const cls   = level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor");
+  document.getElementById("scoreRing").className = "score-ring " + cls;
+  document.getElementById("scoreNum").textContent  = score;
+  document.getElementById("scoreLevel").textContent = data.level || cls.charAt(0).toUpperCase()+cls.slice(1);
+  const descs = {
+    excellent: "Great match! Your resume aligns well with the job description.",
+    good:      "Good match. Adding missing keywords will strengthen it further.",
+    fair:      "Moderate match. Follow the suggestions below to improve your score.",
+    poor:      "Low match. Significant gaps — see suggestions to improve."
+  };
+  document.getElementById("scoreDesc").textContent = descs[cls] || descs.fair;
 
-    const score = data.score  || 0;
-    const level = (data.level || "").toLowerCase();
-    const cls   = level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor");
+  const matchEl = document.getElementById("matchedTags");
+  matchEl.innerHTML = "";
+  (data.matched_keywords||[]).forEach(kw => {
+    const t=document.createElement("span"); t.className="tag-hit"; t.textContent=kw; matchEl.appendChild(t);
+  });
+  if (!matchEl.children.length) matchEl.innerHTML="<span style='color:var(--muted);font-size:13px'>None detected</span>";
 
-    document.getElementById("scoreRing").className = "score-ring " + cls;
-    document.getElementById("scoreNum").textContent = score;
-    document.getElementById("scoreLevel").textContent = data.level ||
-      (score>=90?"Excellent":score>=70?"Good":score>=50?"Fair":"Poor");
+  const missEl = document.getElementById("missingTags");
+  missEl.innerHTML = "";
+  (data.missing_keywords||[]).forEach(kw => {
+    const t=document.createElement("span"); t.className="tag-miss"; t.textContent=kw; missEl.appendChild(t);
+  });
+  if (!missEl.children.length) missEl.innerHTML="<span style='color:var(--green);font-size:13px'>✓ No critical keywords missing!</span>";
 
-    const descs = {
-      excellent: "Great match! Your resume aligns well with the job description.",
-      good:      "Good match. Adding the missing keywords will strengthen it further.",
-      fair:      "Moderate match. Follow the suggestions below to improve your score.",
-      poor:      "Low match. Significant gaps — see suggestions to improve."
-    };
-    document.getElementById("scoreDesc").textContent = descs[cls] || descs["fair"];
-
-    // Matched keywords
-    const matchEl = document.getElementById("matchedTags");
-    matchEl.innerHTML = "";
-    (data.matched_keywords || []).forEach(kw => {
-      const t = document.createElement("span");
-      t.className = "tag-hit"; t.textContent = kw;
-      matchEl.appendChild(t);
-    });
-    if (!matchEl.children.length)
-      matchEl.innerHTML = "<span style='color:var(--muted);font-size:13px'>None detected</span>";
-
-    // Missing keywords
-    const missEl = document.getElementById("missingTags");
-    missEl.innerHTML = "";
-    (data.missing_keywords || []).forEach(kw => {
-      const t = document.createElement("span");
-      t.className = "tag-miss"; t.textContent = kw;
-      missEl.appendChild(t);
-    });
-    if (!missEl.children.length)
-      missEl.innerHTML = "<span style='color:var(--green);font-size:13px'>✓ No critical keywords missing!</span>";
-
-    // Suggestions
-    const sugEl = document.getElementById("sugList");
-    sugEl.innerHTML = "";
-    const sugs = data.suggestions || [];
-    if (!sugs.length) {
-      sugEl.innerHTML = "<li>No additional suggestions.</li>";
-    } else {
-      sugs.forEach(s => {
-        const li = document.createElement("li");
-        li.textContent = s;
-        sugEl.appendChild(li);
-      });
-    }
-  }
+  const sugEl = document.getElementById("sugList");
+  sugEl.innerHTML = "";
+  const sugs = data.suggestions||[];
+  if (!sugs.length) { sugEl.innerHTML="<li>No additional suggestions.</li>"; }
+  else sugs.forEach(s => { const li=document.createElement("li"); li.textContent=s; sugEl.appendChild(li); });
+}
 </script>
 </body>
 </html>
