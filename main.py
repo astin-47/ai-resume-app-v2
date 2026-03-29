@@ -57,9 +57,17 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI(title="AI Resume Builder", version="3.0.0")
 
+# CORS — which websites are allowed to call this API
+# Locally:      allow everything (*)
+# On Render:    only allow your Vercel frontend URL
+# Set ALLOWED_ORIGINS in Render environment variables like:
+#   https://your-app.vercel.app,https://yourcustomdomain.com
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -565,26 +573,52 @@ def build_cover_letter_docx(cover_text: str) -> bytes:
 # =============================================================
 #  Convert DOCX bytes → PDF bytes
 #
-#  Uses docx2pdf which calls Microsoft Word (Windows/Mac) or
-#  LibreOffice (Linux) — whichever is installed.
+#  Strategy (tries each in order, returns first that works):
 #
-#  Returns None if conversion fails (caller falls back to DOCX).
-#  NEVER raises an exception — failures are silently handled.
+#  1. LibreOffice  — available on Render's Linux servers (free).
+#                    Installed via render.yaml build command.
+#  2. docx2pdf     — works on Windows/Mac locally using MS Word.
+#  3. None         — both failed; caller falls back to DOCX file.
+#
+#  NEVER raises — failures are handled silently.
 # =============================================================
 def docx_to_pdf(docx_bytes: bytes) -> bytes | None:
-    try:
-        from docx2pdf import convert
-        with tempfile.TemporaryDirectory() as tmp:
-            docx_path = os.path.join(tmp, "resume.docx")
-            pdf_path  = os.path.join(tmp, "resume.pdf")
-            with open(docx_path, "wb") as f:
-                f.write(docx_bytes)
+    import subprocess, shutil
+
+    with tempfile.TemporaryDirectory() as tmp:
+        docx_path = os.path.join(tmp, "resume.docx")
+        pdf_path  = os.path.join(tmp, "resume.pdf")
+
+        with open(docx_path, "wb") as f:
+            f.write(docx_bytes)
+
+        # ── Try 1: LibreOffice (works on Render Linux) ──────
+        # soffice is the LibreOffice command-line binary
+        lo = shutil.which("soffice") or shutil.which("libreoffice")
+        if lo:
+            try:
+                result = subprocess.run(
+                    [lo, "--headless", "--convert-to", "pdf",
+                     "--outdir", tmp, docx_path],
+                    capture_output=True, timeout=60
+                )
+                if result.returncode == 0 and os.path.exists(pdf_path):
+                    with open(pdf_path, "rb") as f:
+                        return f.read()
+            except Exception:
+                pass
+
+        # ── Try 2: docx2pdf (works locally on Windows/Mac) ──
+        try:
+            from docx2pdf import convert
             convert(docx_path, pdf_path)
             if os.path.exists(pdf_path):
                 with open(pdf_path, "rb") as f:
                     return f.read()
-    except Exception:
-        pass
+        except Exception:
+            pass
+
+    # Both methods failed
     return None
 
 

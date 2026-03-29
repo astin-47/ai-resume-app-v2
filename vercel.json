@@ -1,0 +1,38 @@
+{
+  "comment": "Vercel configuration for the AI Resume Builder frontend",
+
+  "buildCommand": "node build.js",
+
+  "outputDirectory": ".",
+
+  "rewrites": [
+    {
+      "comment": "Serve api-config.js from a special build-time file.",
+      "comment2": "This file sets window.__API_BASE__ to your Render backend URL.",
+      "comment3": "Vercel generates this file using the VITE_API_URL environment variable.",
+      "source": "/api-config.js",
+      "destination": "/api-config.js"
+    },
+    {
+      "comment": "All other routes serve index.html (single page app behaviour).",
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,12 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ResumeForge — AI Resume Builder</title>
+  <!--
+    api-config.js is served by Vercel (see vercel.json rewrites).
+    It sets  window.__API_BASE__  to your Render backend URL.
+    Locally the file does not exist — the fallback localhost is used.
+  -->
+  <script src="/api-config.js" onerror="console.log('Local mode — using localhost')"></script>
 
   <!--
     Fonts:
@@ -635,7 +641,10 @@
      ========================================================= -->
 <script>
   // ── Config ─────────────────────────────────────────────────
-  const API = "https://ai-resume-backend-mv7f.onrender.com";
+  // LOCAL:      set window.API_BASE before this script, or it uses localhost
+  // PRODUCTION: Vercel injects the env variable at build time via _config.js
+  //             (see vercel.json — it serves /api-config.js with the real URL)
+  const API = window.__API_BASE__ || "http://localhost:8000";
 
   // ── State ──────────────────────────────────────────────────
   let currentTab    = "resume";   // "resume" | "cover" | "ats"
