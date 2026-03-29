@@ -1,49 +1,20 @@
-# =============================================================
-# render.yaml  —  Render deployment configuration
-# =============================================================
-#
-# This file tells Render:
-#   1. What type of service to create (web server)
-#   2. How to install dependencies
-#   3. How to start the FastAPI app
-#   4. Which environment variables it needs
-#
-# Render reads this file automatically when you connect your
-# GitHub repo. You do NOT need to type these settings manually.
-#
-# IMPORTANT: Commit this file to the ROOT of your GitHub repo.
-# =============================================================
-
 services:
-  - type: web                        # a web server (has a public URL)
-    name: ai-resume-backend          # name shown in Render dashboard
-    runtime: python                  # use Python runtime
-    region: oregon                   # US West — closest to most users
-    plan: free                       # free tier (spins down after 15 min idle)
+  - type: web
+    name: ai-resume-backend
+    runtime: python
+    region: oregon
+    plan: free
 
-    # ── Install steps (run once when deploying) ──────────────
-    buildCommand: |
-      pip install -r requirements.txt
-      apt-get install -y libreoffice
+    buildCommand: pip install -r requirements.txt
 
-    # ── Start command (runs your FastAPI app) ─────────────────
-    # --host 0.0.0.0  makes it accessible from the internet (not just localhost)
-    # --port $PORT    Render sets $PORT automatically (usually 10000)
-    # --workers 2     2 parallel workers so multiple users don't wait
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
 
-    # ── Environment variables ─────────────────────────────────
-    # These are TEMPLATES — you fill in the real values in the
-    # Render dashboard under Environment → Add Environment Variable
     envVars:
       - key: OPENAI_API_KEY
-        sync: false          # sync:false means you set this manually in dashboard
+        sync: false
 
       - key: ALLOWED_ORIGINS
         sync: false
-        # Set this to your Vercel URL after deploying the frontend:
-        # Example value: https://ai-resume-forge.vercel.app
-        # This restricts which websites can call your API (security)
 
       - key: PYTHON_VERSION
-        value: "3.11.0"      # pin Python version for consistency
+        value: "3.11.0"
