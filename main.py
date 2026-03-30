@@ -122,37 +122,69 @@ async def get_user_plan(user_id: str) -> dict:
     """
     Returns {"plan": "free"|"pro", "usage_count": int}.
     Creates a free plan row automatically if none exists.
+    Falls back to free plan if Supabase is unreachable.
     """
-    async with httpx.AsyncClient() as h:
-        r = await h.get(
-            f"{SUPABASE_URL}/rest/v1/user_plans",
-            headers=_svc(),
-            params={"user_id": f"eq.{user_id}", "select": "plan,usage_count"},
-            timeout=10,
-        )
-    rows = r.json()
-    if rows:
-        return rows[0]
-    # First time — create a free plan row
-    async with httpx.AsyncClient() as h:
-        await h.post(
-            f"{SUPABASE_URL}/rest/v1/user_plans",
-            headers={**_svc(), "Prefer": "return=minimal"},
-            json={"user_id": user_id, "plan": "free", "usage_count": 0},
-            timeout=10,
-        )
-    return {"plan": "free", "usage_count": 0}
+    # Safety: if service key not configured, return free plan
+    if not SUPABASE_SERVICE_KEY:
+        return {"plan": "free", "usage_count": 0}
+
+    try:
+        async with httpx.AsyncClient() as h:
+            r = await h.get(
+                f"{SUPABASE_URL}/rest/v1/user_plans",
+                headers=_svc(),
+                params={"user_id": f"eq.{user_id}", "select": "plan,usage_count"},
+                timeout=10,
+            )
+        rows = r.json() if r.status_code == 200 else []
+        if rows:
+            return rows[0]
+
+        # First time — create a free plan row for this user
+        async with httpx.AsyncClient() as h:
+            await h.post(
+                f"{SUPABASE_URL}/rest/v1/user_plans",
+                headers={**_svc(), "Prefer": "return=minimal"},
+                json={"user_id": user_id, "plan": "free", "usage_count": 0},
+                timeout=10,
+            )
+        return {"plan": "free", "usage_count": 0}
+    except Exception:
+        # If anything fails, default to free plan
+        # so the user is not blocked from using the app
+        return {"plan": "free", "usage_count": 0}
 
 
 async def increment_usage(user_id: str):
-    """Add 1 to usage_count atomically via a Supabase RPC function."""
-    async with httpx.AsyncClient() as h:
-        await h.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/increment_usage",
-            headers=_svc(),
-            json={"uid": user_id},
-            timeout=10,
-        )
+    """
+    Add 1 to usage_count using a direct PATCH.
+    Wrapped in try/except so a logging failure NEVER crashes
+    the main request — the user still gets their file.
+    """
+    try:
+        # First ensure the row exists
+        await get_user_plan(user_id)
+        # Then increment using Postgres raw update via RPC-free approach
+        async with httpx.AsyncClient() as h:
+            # Read current count
+            r = await h.get(
+                f"{SUPABASE_URL}/rest/v1/user_plans",
+                headers=_svc(),
+                params={"user_id": f"eq.{user_id}", "select": "usage_count"},
+                timeout=10,
+            )
+            rows = r.json()
+            current = rows[0]["usage_count"] if rows else 0
+            # Write new count
+            await h.patch(
+                f"{SUPABASE_URL}/rest/v1/user_plans",
+                headers={**_svc(), "Prefer": "return=minimal"},
+                params={"user_id": f"eq.{user_id}"},
+                json={"usage_count": current + 1},
+                timeout=10,
+            )
+    except Exception:
+        pass   # never block the main request because of a usage logging error
 
 
 async def upgrade_to_pro(user_id: str, razorpay_payment_id: str):

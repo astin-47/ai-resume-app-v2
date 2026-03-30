@@ -75,6 +75,9 @@
     .user-email{font-size:13px;color:var(--muted)}
     .btn-logout{font-size:12px;font-weight:600;padding:7px 16px;border:1px solid var(--border);border-radius:99px;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;font-family:var(--font-body)}
     .btn-logout:hover{border-color:var(--red);color:var(--red)}
+    .btn-upgrade-nav{font-size:12px;font-weight:700;padding:7px 16px;border:1px solid var(--gold-dim);border-radius:99px;background:rgba(201,168,76,0.1);color:var(--gold);cursor:pointer;transition:all 0.2s;font-family:var(--font-body)}
+    .btn-upgrade-nav:hover{background:rgba(201,168,76,0.2);border-color:var(--gold)}
+    .btn-upgrade-nav.hidden{display:none}
 
     /* ── Usage badge in navbar ─────────────────────────── */
     .usage-badge{font-size:12px;font-weight:600;padding:6px 14px;border-radius:99px;border:1px solid var(--border);color:var(--muted);cursor:default}
@@ -196,6 +199,10 @@
     <div class="navbar-right">
       <span class="usage-badge" id="usageBadge">Loading…</span>
       <span class="user-email" id="user-email-display"></span>
+      <!-- Upgrade button: hidden for Pro users, always visible for free users -->
+      <button class="btn-upgrade-nav" id="navUpgradeBtn" onclick="showUpgradePopup()">
+        ⚡ Upgrade to Pro
+      </button>
       <button class="btn-logout" onclick="doLogout()">Sign Out</button>
     </div>
   </nav>
@@ -302,9 +309,9 @@
 // ============================================================
 //  CONFIG — replace these 3 values
 // ============================================================
-const API            = "https://ai-resume-app-v2.onrender.com";
-const SUPABASE_URL   = "https://wyporeiholkbjmobmvcv.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_8k_VHn_fbt7I_TjpPmbBzw_1k7Q9KCF";
+const API            = "https://your-app-name.onrender.com";
+const SUPABASE_URL   = "https://wypore.supabase.co";
+const SUPABASE_ANON_KEY = "your-publishable-key-here";
 
 // ============================================================
 //  SUPABASE CLIENT
@@ -352,7 +359,8 @@ window.addEventListener("load", async () => {
 //  USAGE BADGE — shows "3 of 5 free" or "Pro ✦" in navbar
 // ============================================================
 async function loadUsage() {
-  const badge = document.getElementById("usageBadge");
+  const badge      = document.getElementById("usageBadge");
+  const upgradeBtn = document.getElementById("navUpgradeBtn");
   try {
     const res  = await fetch(API + "/my-usage", {
       headers: { "Authorization": "Bearer " + accessToken }
@@ -362,15 +370,21 @@ async function loadUsage() {
     if (data.plan === "pro") {
       badge.textContent  = "Pro ✦";
       badge.className    = "usage-badge pro";
+      // Hide upgrade button for Pro users
+      if (upgradeBtn) upgradeBtn.classList.add("hidden");
     } else {
       const used      = data.usage_count;
       const limit     = data.free_limit;
       const remaining = limit - used;
       badge.textContent = remaining + " of " + limit + " free uses left";
       badge.className   = remaining <= 1 ? "usage-badge warning" : "usage-badge free";
+      // Show upgrade button for free users
+      if (upgradeBtn) upgradeBtn.classList.remove("hidden");
     }
   } catch(e) {
     badge.textContent = "";
+    // If usage check fails, still show upgrade button
+    if (upgradeBtn) upgradeBtn.classList.remove("hidden");
   }
 }
 
