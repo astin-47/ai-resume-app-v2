@@ -6,466 +6,201 @@
   <title>ResumeForge — AI Resume Builder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-
-  <!--
-    Supabase JS SDK loaded from CDN.
-    This handles sign up, login, logout, and gives us the
-    JWT access token we send to the backend with every request.
-  -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+  <!-- Razorpay checkout SDK — opens the payment popup -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <style>
     :root {
-      --ink:       #0e0e0e;
-      --paper:     #f5f0e8;
-      --card:      #1a1a1a;
-      --card2:     #242424;
-      --border:    #2e2e2e;
-      --gold:      #c9a84c;
-      --gold-dim:  #7a5f22;
-      --red:       #d95f52;
-      --green:     #4caf7d;
-      --text:      #e8e4dc;
-      --muted:     #6b6560;
-      --font-head: 'Playfair Display', Georgia, serif;
-      --font-body: 'Instrument Sans', sans-serif;
-      --r:         10px;
-      --r-sm:      6px;
+      --ink:#0e0e0e; --paper:#f5f0e8; --card:#1a1a1a; --card2:#242424;
+      --border:#2e2e2e; --gold:#c9a84c; --gold-dim:#7a5f22;
+      --red:#d95f52; --green:#4caf7d; --text:#e8e4dc; --muted:#6b6560;
+      --font-head:'Playfair Display',Georgia,serif;
+      --font-body:'Instrument Sans',sans-serif;
+      --r:10px; --r-sm:6px;
     }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{background:var(--ink);color:var(--text);font-family:var(--font-body);
+      font-size:15px;line-height:1.65;min-height:100vh;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")}
+    .page{display:none} .page.active{display:block}
+    .shell{max-width:780px;margin:0 auto;padding:56px 24px 100px}
+    .auth-shell{max-width:440px;margin:0 auto;padding:56px 24px 80px}
+    .masthead{text-align:center;margin-bottom:52px;animation:rise 0.7s ease both}
+    .masthead-eyebrow{display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold-dim);padding:5px 16px;border-radius:99px;margin-bottom:22px}
+    .masthead h1{font-family:var(--font-head);font-size:clamp(38px,7vw,64px);font-weight:900;line-height:1.0;letter-spacing:-0.02em;color:var(--paper);margin-bottom:14px}
+    .masthead h1 em{font-style:italic;color:var(--gold)}
+    .masthead p{color:var(--muted);font-size:15px;max-width:400px;margin:0 auto}
+    .gold-rule{width:48px;height:2px;background:var(--gold);margin:20px auto 0}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:40px;box-shadow:0 8px 40px rgba(0,0,0,0.45);animation:rise 0.6s 0.1s ease both}
+    @media(max-width:560px){.card{padding:24px 18px}}
+    .section-label{font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+    .divider{height:1px;background:var(--border);margin:28px 0}
+    .form-group{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+    .form-group label{font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+    input[type="email"],input[type="password"]{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-body);font-size:14px;padding:13px 16px;outline:none;transition:border-color 0.2s}
+    input:focus{border-color:var(--gold)} input::placeholder{color:var(--muted)}
+    .upload-zone{position:relative;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--card2);padding:36px 24px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;margin-bottom:6px}
+    .upload-zone:hover,.upload-zone.over{border-color:var(--gold);background:rgba(201,168,76,0.05)}
+    .upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    .upload-icon{font-size:28px;margin-bottom:8px;display:block;opacity:0.7}
+    .upload-hint{font-size:13px;color:var(--muted)} .upload-hint strong{color:var(--gold)}
+    .file-chip{display:none;margin-top:10px;font-size:13px;color:var(--green);font-weight:500}
+    textarea{width:100%;min-height:120px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-body);font-size:14px;line-height:1.6;padding:14px 16px;resize:vertical;outline:none;transition:border-color 0.2s}
+    textarea:focus{border-color:var(--gold)} textarea::placeholder{color:var(--muted)}
+    .tab-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .tab{background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 8px;text-align:center;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:500;color:var(--muted);user-select:none;transition:all 0.2s}
+    .tab:hover{border-color:var(--gold-dim);color:var(--text)}
+    .tab.active{border-color:var(--gold);background:rgba(201,168,76,0.08);color:var(--gold)}
+    .tab .tab-icon{font-size:20px;display:block;margin-bottom:4px}
+    .format-row{display:flex;gap:8px;margin-top:4px}
+    .fmt-btn{flex:1;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px;text-align:center;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:500;color:var(--muted);transition:all 0.2s;user-select:none}
+    .fmt-btn:hover{border-color:var(--gold-dim);color:var(--text)}
+    .fmt-btn.active{border-color:var(--gold);background:rgba(201,168,76,0.08);color:var(--gold)}
+    .btn-main{width:100%;padding:16px;margin-top:8px;border:none;border-radius:var(--r-sm);background:var(--gold);color:var(--ink);font-family:var(--font-head);font-size:17px;font-weight:700;cursor:pointer;transition:opacity 0.2s,transform 0.15s;position:relative;overflow:hidden}
+    .btn-main:hover:not(:disabled){opacity:0.88;transform:translateY(-1px)}
+    .btn-main:active:not(:disabled){transform:translateY(0)}
+    .btn-main:disabled{opacity:0.4;cursor:not-allowed}
+    .btn-main::after{content:'';position:absolute;top:0;left:-80%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);display:none;animation:shimmer 1.4s infinite}
+    .btn-main.busy::after{display:block}
+    .btn-ghost{width:100%;padding:14px;margin-top:12px;border:1px solid var(--border);border-radius:var(--r-sm);background:transparent;color:var(--muted);font-family:var(--font-body);font-size:14px;cursor:pointer;transition:border-color 0.2s,color 0.2s}
+    .btn-ghost:hover{border-color:var(--gold-dim);color:var(--text)}
+    .auth-toggle{text-align:center;margin-top:20px;font-size:13px;color:var(--muted)}
+    .auth-toggle a{color:var(--gold);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+    .navbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+    .navbar-brand{font-family:var(--font-head);font-size:20px;font-weight:900;color:var(--paper)}
+    .navbar-brand em{font-style:italic;color:var(--gold)}
+    .navbar-right{display:flex;align-items:center;gap:16px}
+    .user-email{font-size:13px;color:var(--muted)}
+    .btn-logout{font-size:12px;font-weight:600;padding:7px 16px;border:1px solid var(--border);border-radius:99px;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;font-family:var(--font-body)}
+    .btn-logout:hover{border-color:var(--red);color:var(--red)}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    /* ── Usage badge in navbar ─────────────────────────── */
+    .usage-badge{font-size:12px;font-weight:600;padding:6px 14px;border-radius:99px;border:1px solid var(--border);color:var(--muted);cursor:default}
+    .usage-badge.free{border-color:var(--gold-dim);color:var(--gold)}
+    .usage-badge.pro{border-color:var(--green);color:var(--green)}
+    .usage-badge.warning{border-color:var(--red);color:var(--red)}
 
-    body {
-      background: var(--ink);
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 15px;
-      line-height: 1.65;
-      min-height: 100vh;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    }
+    /* ── Upgrade popup overlay ────────────────────────── */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;animation:fadeIn 0.2s ease}
+    .overlay.show{display:flex}
+    .popup{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:40px;max-width:460px;width:90%;text-align:center;animation:rise 0.3s ease both}
+    .popup-icon{font-size:48px;margin-bottom:16px}
+    .popup h2{font-family:var(--font-head);font-size:26px;font-weight:900;color:var(--paper);margin-bottom:12px}
+    .popup p{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:24px}
+    .popup .price{font-family:var(--font-head);font-size:36px;font-weight:900;color:var(--gold);margin-bottom:4px}
+    .popup .price-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+    .features-list{list-style:none;text-align:left;margin-bottom:28px}
+    .features-list li{padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);display:flex;align-items:center;gap:10px}
+    .features-list li:last-child{border-bottom:none}
+    .features-list .check{color:var(--green);font-weight:700;font-size:16px}
+    .btn-upgrade{width:100%;padding:16px;border:none;border-radius:var(--r-sm);background:var(--gold);color:var(--ink);font-family:var(--font-head);font-size:17px;font-weight:700;cursor:pointer;transition:opacity 0.2s;margin-bottom:12px}
+    .btn-upgrade:hover{opacity:0.88}
+    .btn-upgrade:disabled{opacity:0.5;cursor:not-allowed}
+    .btn-dismiss{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--font-body);padding:8px}
+    .btn-dismiss:hover{color:var(--text)}
 
-    /* ── Pages (auth vs app) ─────────────────────────────── */
-    .page { display: none; }
-    .page.active { display: block; }
-
-    /* ── Shared shell ────────────────────────────────────── */
-    .shell {
-      max-width: 780px;
-      margin: 0 auto;
-      padding: 56px 24px 100px;
-    }
-
-    /* ── Masthead ─────────────────────────────────────────── */
-    .masthead {
-      text-align: center;
-      margin-bottom: 52px;
-      animation: rise 0.7s ease both;
-    }
-    .masthead-eyebrow {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--gold);
-      border: 1px solid var(--gold-dim);
-      padding: 5px 16px;
-      border-radius: 99px;
-      margin-bottom: 22px;
-    }
-    .masthead h1 {
-      font-family: var(--font-head);
-      font-size: clamp(38px, 7vw, 64px);
-      font-weight: 900;
-      line-height: 1.0;
-      letter-spacing: -0.02em;
-      color: var(--paper);
-      margin-bottom: 14px;
-    }
-    .masthead h1 em { font-style: italic; color: var(--gold); }
-    .masthead p { color: var(--muted); font-size: 15px; max-width: 400px; margin: 0 auto; }
-    .gold-rule { width: 48px; height: 2px; background: var(--gold); margin: 20px auto 0; }
-
-    /* ── Card ─────────────────────────────────────────────── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 40px;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.45);
-      animation: rise 0.6s 0.1s ease both;
-    }
-    @media (max-width: 560px) { .card { padding: 24px 18px; } }
-
-    /* ── Auth card (narrower) ─────────────────────────────── */
-    .auth-shell {
-      max-width: 440px;
-      margin: 0 auto;
-      padding: 56px 24px 80px;
-    }
-
-    /* ── Section label ────────────────────────────────────── */
-    .section-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
-
-    /* ── Divider ──────────────────────────────────────────── */
-    .divider { height: 1px; background: var(--border); margin: 28px 0; }
-
-    /* ── Form inputs ──────────────────────────────────────── */
-    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-    .form-group label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    input[type="email"],
-    input[type="password"],
-    input[type="text"] {
-      width: 100%;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 14px;
-      padding: 13px 16px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus { border-color: var(--gold); }
-    input::placeholder { color: var(--muted); }
-
-    /* ── Upload zone ──────────────────────────────────────── */
-    .upload-zone {
-      position: relative;
-      border: 1.5px dashed var(--border);
-      border-radius: var(--r-sm);
-      background: var(--card2);
-      padding: 36px 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-      margin-bottom: 6px;
-    }
-    .upload-zone:hover, .upload-zone.over {
-      border-color: var(--gold);
-      background: rgba(201,168,76,0.05);
-    }
-    .upload-zone input[type="file"] {
-      position: absolute; inset: 0; opacity: 0;
-      cursor: pointer; width: 100%; height: 100%;
-    }
-    .upload-icon { font-size: 28px; margin-bottom: 8px; display: block; opacity: 0.7; }
-    .upload-hint { font-size: 13px; color: var(--muted); }
-    .upload-hint strong { color: var(--gold); }
-    .file-chip { display:none; margin-top:10px; font-size:13px; color:var(--green); font-weight:500; }
-
-    /* ── Textarea ─────────────────────────────────────────── */
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 14px;
-      line-height: 1.6;
-      padding: 14px 16px;
-      resize: vertical;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    textarea:focus { border-color: var(--gold); }
-    textarea::placeholder { color: var(--muted); }
-
-    /* ── Tabs ─────────────────────────────────────────────── */
-    .tab-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-    .tab {
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      padding: 14px 8px;
-      text-align: center;
-      cursor: pointer;
-      font-family: var(--font-body);
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--muted);
-      user-select: none;
-      transition: all 0.2s;
-    }
-    .tab:hover { border-color: var(--gold-dim); color: var(--text); }
-    .tab.active { border-color: var(--gold); background: rgba(201,168,76,0.08); color: var(--gold); }
-    .tab .tab-icon { font-size: 20px; display: block; margin-bottom: 4px; }
-
-    /* ── Format buttons ───────────────────────────────────── */
-    .format-row { display: flex; gap: 8px; margin-top: 4px; }
-    .fmt-btn {
-      flex: 1;
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      padding: 11px;
-      text-align: center;
-      cursor: pointer;
-      font-family: var(--font-body);
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--muted);
-      transition: all 0.2s;
-      user-select: none;
-    }
-    .fmt-btn:hover { border-color: var(--gold-dim); color: var(--text); }
-    .fmt-btn.active { border-color: var(--gold); background: rgba(201,168,76,0.08); color: var(--gold); }
-
-    /* ── Buttons ──────────────────────────────────────────── */
-    .btn-main {
-      width: 100%;
-      padding: 16px;
-      margin-top: 8px;
-      border: none;
-      border-radius: var(--r-sm);
-      background: var(--gold);
-      color: var(--ink);
-      font-family: var(--font-head);
-      font-size: 17px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.15s;
-      position: relative;
-      overflow: hidden;
-    }
-    .btn-main:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
-    .btn-main:active:not(:disabled) { transform: translateY(0); }
-    .btn-main:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-main::after {
-      content: ''; position: absolute; top:0; left:-80%;
-      width:50%; height:100%;
-      background: linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
-      display: none; animation: shimmer 1.4s infinite;
-    }
-    .btn-main.busy::after { display: block; }
-
-    .btn-ghost {
-      width: 100%;
-      padding: 14px;
-      margin-top: 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--r-sm);
-      background: transparent;
-      color: var(--muted);
-      font-family: var(--font-body);
-      font-size: 14px;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .btn-ghost:hover { border-color: var(--gold-dim); color: var(--text); }
-
-    /* ── Auth toggle link ─────────────────────────────────── */
-    .auth-toggle {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .auth-toggle a {
-      color: var(--gold);
-      cursor: pointer;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
-
-    /* ── Navbar (shown when logged in) ───────────────────── */
-    .navbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .navbar-brand {
-      font-family: var(--font-head);
-      font-size: 20px;
-      font-weight: 900;
-      color: var(--paper);
-    }
-    .navbar-brand em { font-style: italic; color: var(--gold); }
-    .navbar-right { display: flex; align-items: center; gap: 16px; }
-    .user-email { font-size: 13px; color: var(--muted); }
-    .btn-logout {
-      font-size: 12px;
-      font-weight: 600;
-      padding: 7px 16px;
-      border: 1px solid var(--border);
-      border-radius: 99px;
-      background: transparent;
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: var(--font-body);
-    }
-    .btn-logout:hover { border-color: var(--red); color: var(--red); }
-
-    /* ── Status bar ───────────────────────────────────────── */
-    .status { display:none; margin-top:16px; padding:13px 16px; border-radius:var(--r-sm); font-size:14px; font-weight:500; align-items:center; gap:10px; animation:rise 0.3s ease both; }
-    .status.working { display:flex; background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.3); color:var(--gold); }
-    .status.ok { display:flex; background:rgba(76,175,125,0.08); border:1px solid rgba(76,175,125,0.3); color:var(--green); }
-    .status.fail { display:flex; background:rgba(217,95,82,0.08); border:1px solid rgba(217,95,82,0.3); color:var(--red); }
-    .spin { width:15px; height:15px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:rotate 0.8s linear infinite; flex-shrink:0; }
-
-    /* ── Tip ──────────────────────────────────────────────── */
-    .tip { margin-top:16px; padding:12px 16px; background:rgba(201,168,76,0.06); border-left:3px solid var(--gold-dim); border-radius:0 var(--r-sm) var(--r-sm) 0; font-size:13px; color:var(--muted); display:none; }
-    .tip.show { display:block; }
-
-    /* ── ATS panel ────────────────────────────────────────── */
-    .ats-panel { display:none; margin-top:28px; background:var(--card2); border:1px solid var(--border); border-radius:var(--r); padding:32px; animation:rise 0.4s ease both; }
-    .ats-panel h3 { font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--paper); margin-bottom:24px; }
-    .score-row { display:flex; align-items:center; gap:24px; margin-bottom:28px; }
-    .score-ring { width:96px; height:96px; border-radius:50%; border:4px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; transition:border-color 0.5s; }
-    .score-ring.excellent { border-color:var(--green); }
-    .score-ring.good      { border-color:var(--gold);  }
-    .score-ring.fair      { border-color:#e6a817;      }
-    .score-ring.poor      { border-color:var(--red);   }
-    .score-num { font-family:var(--font-head); font-size:28px; font-weight:900; line-height:1; }
-    .score-ring.excellent .score-num { color:var(--green); }
-    .score-ring.good      .score-num { color:var(--gold);  }
-    .score-ring.fair      .score-num { color:#e6a817;      }
-    .score-ring.poor      .score-num { color:var(--red);   }
-    .score-lbl { font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-top:2px; }
-    .score-desc { font-size:14px; color:var(--muted); line-height:1.6; }
-    .score-level { font-weight:600; color:var(--text); margin-bottom:4px; font-size:15px; }
-    .tags { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:24px; }
-    .tag-miss { font-size:12px; font-weight:600; padding:4px 12px; border-radius:99px; background:rgba(217,95,82,0.12); border:1px solid rgba(217,95,82,0.35); color:var(--red); }
-    .tag-hit  { font-size:12px; font-weight:600; padding:4px 12px; border-radius:99px; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); }
-    .sug-list { list-style:none; display:flex; flex-direction:column; gap:9px; }
-    .sug-list li { font-size:14px; color:var(--text); padding-left:22px; position:relative; }
-    .sug-list li::before { content:'›'; position:absolute; left:0; color:var(--gold); font-size:18px; line-height:1.2; font-weight:700; }
-
-    /* ── Auth error ───────────────────────────────────────── */
-    .auth-error { display:none; margin-top:12px; padding:12px 16px; background:rgba(217,95,82,0.1); border:1px solid rgba(217,95,82,0.3); border-radius:var(--r-sm); color:var(--red); font-size:13px; }
-    .auth-error.show { display:block; }
-    .auth-success { display:none; margin-top:12px; padding:12px 16px; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:var(--r-sm); color:var(--green); font-size:13px; }
-    .auth-success.show { display:block; }
-
-    /* ── Animations ───────────────────────────────────────── */
-    @keyframes rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes rotate { to{transform:rotate(360deg)} }
-    @keyframes shimmer { to{left:130%} }
+    .status{display:none;margin-top:16px;padding:13px 16px;border-radius:var(--r-sm);font-size:14px;font-weight:500;align-items:center;gap:10px;animation:rise 0.3s ease both}
+    .status.working{display:flex;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);color:var(--gold)}
+    .status.ok{display:flex;background:rgba(76,175,125,0.08);border:1px solid rgba(76,175,125,0.3);color:var(--green)}
+    .status.fail{display:flex;background:rgba(217,95,82,0.08);border:1px solid rgba(217,95,82,0.3);color:var(--red)}
+    .spin{width:15px;height:15px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:rotate 0.8s linear infinite;flex-shrink:0}
+    .tip{margin-top:16px;padding:12px 16px;background:rgba(201,168,76,0.06);border-left:3px solid var(--gold-dim);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:13px;color:var(--muted);display:none}
+    .tip.show{display:block}
+    .ats-panel{display:none;margin-top:28px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:32px;animation:rise 0.4s ease both}
+    .ats-panel h3{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--paper);margin-bottom:24px}
+    .score-row{display:flex;align-items:center;gap:24px;margin-bottom:28px}
+    .score-ring{width:96px;height:96px;border-radius:50%;border:4px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;transition:border-color 0.5s}
+    .score-ring.excellent{border-color:var(--green)} .score-ring.good{border-color:var(--gold)}
+    .score-ring.fair{border-color:#e6a817} .score-ring.poor{border-color:var(--red)}
+    .score-num{font-family:var(--font-head);font-size:28px;font-weight:900;line-height:1}
+    .score-ring.excellent .score-num{color:var(--green)} .score-ring.good .score-num{color:var(--gold)}
+    .score-ring.fair .score-num{color:#e6a817} .score-ring.poor .score-num{color:var(--red)}
+    .score-lbl{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+    .score-desc{font-size:14px;color:var(--muted);line-height:1.6}
+    .score-level{font-weight:600;color:var(--text);margin-bottom:4px;font-size:15px}
+    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px}
+    .tag-miss{font-size:12px;font-weight:600;padding:4px 12px;border-radius:99px;background:rgba(217,95,82,0.12);border:1px solid rgba(217,95,82,0.35);color:var(--red)}
+    .tag-hit{font-size:12px;font-weight:600;padding:4px 12px;border-radius:99px;background:rgba(76,175,125,0.1);border:1px solid rgba(76,175,125,0.3);color:var(--green)}
+    .sug-list{list-style:none;display:flex;flex-direction:column;gap:9px}
+    .sug-list li{font-size:14px;color:var(--text);padding-left:22px;position:relative}
+    .sug-list li::before{content:'›';position:absolute;left:0;color:var(--gold);font-size:18px;line-height:1.2;font-weight:700}
+    .auth-error{display:none;margin-top:12px;padding:12px 16px;background:rgba(217,95,82,0.1);border:1px solid rgba(217,95,82,0.3);border-radius:var(--r-sm);color:var(--red);font-size:13px}
+    .auth-error.show{display:block}
+    .auth-success{display:none;margin-top:12px;padding:12px 16px;background:rgba(76,175,125,0.1);border:1px solid rgba(76,175,125,0.3);border-radius:var(--r-sm);color:var(--green);font-size:13px}
+    .auth-success.show{display:block}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes rotate{to{transform:rotate(360deg)}}
+    @keyframes shimmer{to{left:130%}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   </style>
 </head>
 <body>
 
-<!-- =============================================================
-     PAGE 1 — AUTH  (login & signup)
-     Shown when no user is logged in.
-     ============================================================= -->
+<!-- ============================================================
+     PAGE 1 — AUTH
+     ============================================================ -->
 <div id="page-auth" class="page active">
   <div class="auth-shell">
-
-    <!-- Logo -->
     <div class="masthead" style="margin-bottom:36px">
       <div class="masthead-eyebrow">✦ AI-Powered</div>
       <h1>Resume<em>Forge</em></h1>
       <p id="auth-subtitle">Sign in to build your perfect resume.</p>
       <div class="gold-rule"></div>
     </div>
-
-    <!-- Auth Card -->
     <div class="card">
-
-      <!-- LOGIN FORM -->
+      <!-- Login -->
       <div id="form-login">
         <div class="section-label">Sign In</div>
-
         <div class="form-group">
           <label>Email</label>
           <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
         </div>
-
         <div class="form-group">
           <label>Password</label>
           <input type="password" id="login-password" placeholder="Your password" autocomplete="current-password"/>
         </div>
-
         <div class="auth-error" id="login-error"></div>
-
-        <button class="btn-main" id="login-btn" onclick="doLogin()">
-          Sign In ✦
-        </button>
-
-        <div class="auth-toggle">
-          Don't have an account? <a onclick="showSignup()">Create one free</a>
-        </div>
+        <button class="btn-main" id="login-btn" onclick="doLogin()">Sign In ✦</button>
+        <div class="auth-toggle">Don't have an account? <a onclick="showSignup()">Create one free</a></div>
       </div>
-
-      <!-- SIGNUP FORM (hidden by default) -->
+      <!-- Signup -->
       <div id="form-signup" style="display:none">
         <div class="section-label">Create Account</div>
-
         <div class="form-group">
           <label>Email</label>
           <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"/>
         </div>
-
         <div class="form-group">
           <label>Password <span style="color:var(--muted);font-weight:400;text-transform:none">(min 6 characters)</span></label>
           <input type="password" id="signup-password" placeholder="Choose a password" autocomplete="new-password"/>
         </div>
-
         <div class="auth-error"   id="signup-error"></div>
         <div class="auth-success" id="signup-success"></div>
-
-        <button class="btn-main" id="signup-btn" onclick="doSignup()">
-          Create Account ✦
-        </button>
-
-        <div class="auth-toggle">
-          Already have an account? <a onclick="showLogin()">Sign in</a>
-        </div>
+        <button class="btn-main" id="signup-btn" onclick="doSignup()">Create Account ✦</button>
+        <div class="auth-toggle">Already have an account? <a onclick="showLogin()">Sign in</a></div>
       </div>
+    </div>
+  </div>
+</div>
 
-    </div><!-- /.card -->
-  </div><!-- /.auth-shell -->
-</div><!-- /#page-auth -->
-
-
-<!-- =============================================================
-     PAGE 2 — APP  (the main resume builder)
-     Shown only when user is logged in.
-     ============================================================= -->
+<!-- ============================================================
+     PAGE 2 — APP
+     ============================================================ -->
 <div id="page-app" class="page">
 
   <!-- Navbar -->
   <nav class="navbar">
     <div class="navbar-brand">Resume<em>Forge</em></div>
     <div class="navbar-right">
+      <span class="usage-badge" id="usageBadge">Loading…</span>
       <span class="user-email" id="user-email-display"></span>
       <button class="btn-logout" onclick="doLogout()">Sign Out</button>
     </div>
   </nav>
 
   <div class="shell">
-
-    <!-- Masthead -->
     <header class="masthead">
       <div class="masthead-eyebrow">✦ AI-Powered</div>
       <h1>Resume<em>Forge</em></h1>
@@ -473,44 +208,30 @@
       <div class="gold-rule"></div>
     </header>
 
-    <!-- Main Card -->
     <div class="card">
-
       <!-- 01 Upload -->
       <div class="section-label">01 — Upload Resume</div>
       <div class="upload-zone" id="dropZone"
            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
         <input type="file" id="fileInput" accept=".pdf,.docx,.txt" onchange="onFileChange(event)"/>
         <span class="upload-icon">📄</span>
-        <div class="upload-hint">
-          <strong>Click to browse</strong> or drag &amp; drop<br/>
-          Accepts PDF, DOCX, or TXT
-        </div>
+        <div class="upload-hint"><strong>Click to browse</strong> or drag &amp; drop<br/>PDF, DOCX, or TXT</div>
         <div class="file-chip" id="fileChip"></div>
       </div>
-
       <div class="divider"></div>
 
       <!-- 02 Job Description -->
       <div class="section-label">02 — Job Description <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(recommended)</span></div>
-      <textarea id="jobDesc" placeholder="Paste the job posting here. Used for ATS scoring, resume tailoring, and cover letters."></textarea>
-
+      <textarea id="jobDesc" placeholder="Paste the job posting here."></textarea>
       <div class="divider"></div>
 
       <!-- 03 Task -->
       <div class="section-label">03 — Choose Task</div>
       <div class="tab-row">
-        <div class="tab active" id="tab-resume" onclick="setTab('resume')">
-          <span class="tab-icon">🔧</span>Optimise Resume
-        </div>
-        <div class="tab" id="tab-cover" onclick="setTab('cover')">
-          <span class="tab-icon">✉️</span>Cover Letter
-        </div>
-        <div class="tab" id="tab-ats" onclick="setTab('ats')">
-          <span class="tab-icon">📊</span>ATS Score
-        </div>
+        <div class="tab active" id="tab-resume" onclick="setTab('resume')"><span class="tab-icon">🔧</span>Optimise Resume</div>
+        <div class="tab" id="tab-cover" onclick="setTab('cover')"><span class="tab-icon">✉️</span>Cover Letter</div>
+        <div class="tab" id="tab-ats" onclick="setTab('ats')"><span class="tab-icon">📊</span>ATS Score</div>
       </div>
-
       <div class="divider"></div>
 
       <!-- 04 Format -->
@@ -522,34 +243,21 @@
           <div class="fmt-btn" id="fmt-txt"  onclick="setFormat('txt')">📃 Plain Text</div>
         </div>
       </div>
+      <div class="tip show" id="formatTip">💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly.</div>
 
-      <div class="tip show" id="formatTip">
-        💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly.
-      </div>
+      <button class="btn-main" id="genBtn" onclick="generate()">Generate &amp; Download ✦</button>
 
-      <!-- Generate button -->
-      <button class="btn-main" id="genBtn" onclick="generate()">
-        Generate &amp; Download ✦
-      </button>
-
-      <!-- Status bar -->
       <div class="status" id="statusBar">
         <div class="spin" id="spinEl"></div>
         <span id="statusMsg">Working…</span>
       </div>
 
-      <!-- ATS panel -->
+      <!-- ATS Panel -->
       <div class="ats-panel" id="atsPanel">
         <h3>ATS Score Report</h3>
         <div class="score-row">
-          <div class="score-ring" id="scoreRing">
-            <div class="score-num" id="scoreNum">—</div>
-            <div class="score-lbl">Score</div>
-          </div>
-          <div>
-            <div class="score-level" id="scoreLevel">—</div>
-            <div class="score-desc" id="scoreDesc">Run the ATS check to see your result.</div>
-          </div>
+          <div class="score-ring" id="scoreRing"><div class="score-num" id="scoreNum">—</div><div class="score-lbl">Score</div></div>
+          <div><div class="score-level" id="scoreLevel">—</div><div class="score-desc" id="scoreDesc">Run the ATS check to see your result.</div></div>
         </div>
         <div class="section-label" style="margin-bottom:10px">Matched Keywords</div>
         <div class="tags" id="matchedTags"></div>
@@ -559,71 +267,80 @@
         <div class="section-label" style="margin-bottom:10px">Suggestions</div>
         <ul class="sug-list" id="sugList"></ul>
       </div>
+    </div>
+  </div>
+</div>
 
-    </div><!-- /.card -->
-  </div><!-- /.shell -->
-</div><!-- /#page-app -->
+<!-- ============================================================
+     UPGRADE POPUP
+     Shown when a free user hits their limit (HTTP 402 response)
+     ============================================================ -->
+<div class="overlay" id="upgradeOverlay">
+  <div class="popup">
+    <div class="popup-icon">⚡</div>
+    <h2>Upgrade to Pro</h2>
+    <p>You've used all your free generations.<br/>Upgrade for unlimited access.</p>
+    <div class="price">₹499<span style="font-size:18px;color:var(--muted)">/month</span></div>
+    <div class="price-sub">Cancel anytime</div>
+    <ul class="features-list">
+      <li><span class="check">✓</span> Unlimited resume optimisations</li>
+      <li><span class="check">✓</span> Unlimited cover letters</li>
+      <li><span class="check">✓</span> Unlimited ATS checks</li>
+      <li><span class="check">✓</span> Word, PDF &amp; TXT export</li>
+      <li><span class="check">✓</span> Priority AI processing</li>
+    </ul>
+    <button class="btn-upgrade" id="upgradeBtn" onclick="startCheckout()">
+      Upgrade Now — ₹499/month ✦
+    </button>
+    <br/>
+    <button class="btn-dismiss" onclick="closeUpgradePopup()">Maybe later</button>
+  </div>
+</div>
 
 
 <script>
-// =============================================================
-//  CONFIG
-//  ▼▼▼ Replace these 3 values with YOUR own ▼▼▼
-// =============================================================
-
-// Your Render backend URL
-const API = "https://ai-resume-app-v2.onrender.com";
-
-// Your Supabase project URL and anon key
-// Find these in: Supabase dashboard → Settings → API
-const SUPABASE_URL      = "https://wyporeiholkbjmobmvcv.supabase.co";
+// ============================================================
+//  CONFIG — replace these 3 values
+// ============================================================
+const API            = "https://ai-resume-app-v2.onrender.com";
+const SUPABASE_URL   = "https://wyporeiholkbjmobmvcv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_8k_VHn_fbt7I_TjpPmbBzw_1k7Q9KCF";
 
-// =============================================================
-//  SUPABASE CLIENT SETUP
-//  createClient() initialises the Supabase JS SDK.
-//  After this, `sb` has methods like:
-//    sb.auth.signUp()    — create account
-//    sb.auth.signInWithPassword() — login
-//    sb.auth.signOut()   — logout
-//    sb.auth.getSession() — check if already logged in
-// =============================================================
+// ============================================================
+//  SUPABASE CLIENT
+// ============================================================
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Holds the current user's access token — sent with every API request
 let accessToken = null;
 
-// =============================================================
-//  PAGE ROUTING — show auth or app based on login state
-// =============================================================
+// ============================================================
+//  PAGE ROUTING
+// ============================================================
 function showPage(name) {
-  // name: "auth" or "app"
   document.getElementById("page-auth").classList.toggle("active", name === "auth");
   document.getElementById("page-app" ).classList.toggle("active", name === "app");
 }
 
-// =============================================================
-//  ON PAGE LOAD — check if user is already logged in
-//  (Supabase stores the session in localStorage automatically)
-// =============================================================
+// ============================================================
+//  ON LOAD — restore session + check for payment return
+// ============================================================
 window.addEventListener("load", async () => {
   const { data } = await sb.auth.getSession();
   if (data.session) {
-    // User already has a valid session
     accessToken = data.session.access_token;
-    document.getElementById("user-email-display").textContent =
-      data.session.user.email;
+    document.getElementById("user-email-display").textContent = data.session.user.email;
     showPage("app");
+    loadUsage();
+    checkPaymentReturn();
   } else {
     showPage("auth");
   }
 
-  // Listen for auth changes (login / logout events)
   sb.auth.onAuthStateChange((event, session) => {
     if (session) {
       accessToken = session.access_token;
       document.getElementById("user-email-display").textContent = session.user.email;
       showPage("app");
+      loadUsage();
     } else {
       accessToken = null;
       showPage("auth");
@@ -631,23 +348,142 @@ window.addEventListener("load", async () => {
   });
 });
 
-// =============================================================
-//  AUTH FORM SWITCHING
-// =============================================================
+// ============================================================
+//  USAGE BADGE — shows "3 of 5 free" or "Pro ✦" in navbar
+// ============================================================
+async function loadUsage() {
+  const badge = document.getElementById("usageBadge");
+  try {
+    const res  = await fetch(API + "/my-usage", {
+      headers: { "Authorization": "Bearer " + accessToken }
+    });
+    const data = await res.json();
+
+    if (data.plan === "pro") {
+      badge.textContent  = "Pro ✦";
+      badge.className    = "usage-badge pro";
+    } else {
+      const used      = data.usage_count;
+      const limit     = data.free_limit;
+      const remaining = limit - used;
+      badge.textContent = remaining + " of " + limit + " free uses left";
+      badge.className   = remaining <= 1 ? "usage-badge warning" : "usage-badge free";
+    }
+  } catch(e) {
+    badge.textContent = "";
+  }
+}
+
+// (Razorpay uses a popup — no redirect needed, no URL params to check)
+function checkPaymentReturn() {}
+
+// ============================================================
+//  UPGRADE POPUP
+// ============================================================
+function showUpgradePopup() {
+  document.getElementById("upgradeOverlay").classList.add("show");
+}
+function closeUpgradePopup() {
+  document.getElementById("upgradeOverlay").classList.remove("show");
+}
+// Close popup if user clicks outside it
+document.getElementById("upgradeOverlay").addEventListener("click", function(e) {
+  if (e.target === this) closeUpgradePopup();
+});
+
+// ============================================================
+//  RAZORPAY CHECKOUT
+//  1. Backend creates a Razorpay order
+//  2. Razorpay popup opens (user stays on page)
+//  3. After payment, backend verifies & activates Pro
+// ============================================================
+async function startCheckout() {
+  const btn = document.getElementById("upgradeBtn");
+  btn.disabled    = true;
+  btn.textContent = "Preparing payment…";
+
+  try {
+    // Step 1: create order on backend
+    const res   = await fetch(API + "/create-order", {
+      method:  "POST",
+      headers: { "Authorization": "Bearer " + accessToken }
+    });
+    const order = await res.json();
+    if (!order.order_id) throw new Error("Could not create order.");
+
+    btn.disabled    = false;
+    btn.textContent = "Upgrade Now — ₹499/month ✦";
+    closeUpgradePopup();
+
+    // Step 2: open Razorpay popup
+    const rzp = new Razorpay({
+      key:         order.key_id,
+      amount:      order.amount,
+      currency:    order.currency,
+      name:        "ResumeForge",
+      description: "Pro Plan — Unlimited AI Resume Builder",
+      order_id:    order.order_id,
+      prefill:     { email: document.getElementById("user-email-display").textContent || "" },
+      theme:       { color: "#c9a84c" },
+
+      // Step 3: called when payment succeeds
+      handler: async function(response) {
+        setStatus("working", "Verifying payment — please wait…");
+        try {
+          const vRes = await fetch(API + "/verify-payment", {
+            method:  "POST",
+            headers: {
+              "Authorization": "Bearer " + accessToken,
+              "Content-Type":  "application/json",
+            },
+            body: JSON.stringify({
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature:  response.razorpay_signature,
+            }),
+          });
+          const result = await vRes.json();
+          if (result.success) {
+            setStatus("ok", "🎉 Payment successful! You are now on the Pro plan.");
+            loadUsage();   // refresh badge to "Pro ✦"
+          } else {
+            setStatus("fail", "Verification failed. Contact support with your payment ID: " + response.razorpay_payment_id);
+          }
+        } catch(err) {
+          setStatus("fail", "Verification error: " + err.message);
+        }
+      },
+
+      modal: {
+        ondismiss: function() {
+          setStatus("fail", "Payment cancelled. You can upgrade any time.");
+        }
+      }
+    });
+    rzp.open();
+
+  } catch(err) {
+    btn.disabled    = false;
+    btn.textContent = "Upgrade Now — ₹499/month ✦";
+    setStatus("fail", "Could not start payment: " + err.message);
+  }
+}
+
+// ============================================================
+//  AUTH
+// ============================================================
 function showLogin() {
   document.getElementById("form-login").style.display  = "block";
   document.getElementById("form-signup").style.display = "none";
   document.getElementById("auth-subtitle").textContent = "Sign in to build your perfect resume.";
   clearAuthMessages();
 }
-
 function showSignup() {
   document.getElementById("form-login").style.display  = "none";
   document.getElementById("form-signup").style.display = "block";
   document.getElementById("auth-subtitle").textContent = "Create a free account.";
   clearAuthMessages();
 }
-
 function clearAuthMessages() {
   ["login-error","signup-error","signup-success"].forEach(id => {
     const el = document.getElementById(id);
@@ -655,302 +491,209 @@ function clearAuthMessages() {
     el.textContent = "";
   });
 }
+function showAuthError(id, msg)   { const el=document.getElementById(id); el.textContent=msg; el.classList.add("show"); }
+function showAuthSuccess(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.classList.add("show"); }
 
-function showAuthError(id, msg) {
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  el.classList.add("show");
-}
-
-function showAuthSuccess(id, msg) {
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  el.classList.add("show");
-}
-
-// =============================================================
-//  LOGIN
-// =============================================================
 async function doLogin() {
-  const email    = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value;
-  const btn      = document.getElementById("login-btn");
-
-  if (!email || !password) {
-    showAuthError("login-error", "Please enter your email and password.");
-    return;
-  }
-
-  btn.disabled    = true;
-  btn.textContent = "Signing in…";
-  clearAuthMessages();
-
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-
-  btn.disabled    = false;
-  btn.textContent = "Sign In ✦";
-
-  if (error) {
-    showAuthError("login-error", error.message);
-  }
-  // On success, onAuthStateChange fires automatically → showPage("app")
+  const email=document.getElementById("login-email").value.trim();
+  const pass =document.getElementById("login-password").value;
+  const btn  =document.getElementById("login-btn");
+  if (!email||!pass) { showAuthError("login-error","Please enter your email and password."); return; }
+  btn.disabled=true; btn.textContent="Signing in…"; clearAuthMessages();
+  const { error } = await sb.auth.signInWithPassword({ email, password:pass });
+  btn.disabled=false; btn.textContent="Sign In ✦";
+  if (error) showAuthError("login-error", error.message);
 }
 
-// =============================================================
-//  SIGN UP
-// =============================================================
 async function doSignup() {
-  const email    = document.getElementById("signup-email").value.trim();
-  const password = document.getElementById("signup-password").value;
-  const btn      = document.getElementById("signup-btn");
-
-  if (!email || !password) {
-    showAuthError("signup-error", "Please enter your email and password.");
-    return;
-  }
-  if (password.length < 6) {
-    showAuthError("signup-error", "Password must be at least 6 characters.");
-    return;
-  }
-
-  btn.disabled    = true;
-  btn.textContent = "Creating account…";
-  clearAuthMessages();
-
-  const { error } = await sb.auth.signUp({ email, password });
-
-  btn.disabled    = false;
-  btn.textContent = "Create Account ✦";
-
-  if (error) {
-    showAuthError("signup-error", error.message);
-  } else {
-    showAuthSuccess(
-      "signup-success",
-      "✓ Account created! Check your email to confirm, then sign in."
-    );
-  }
+  const email=document.getElementById("signup-email").value.trim();
+  const pass =document.getElementById("signup-password").value;
+  const btn  =document.getElementById("signup-btn");
+  if (!email||!pass) { showAuthError("signup-error","Please enter your email and password."); return; }
+  if (pass.length<6) { showAuthError("signup-error","Password must be at least 6 characters."); return; }
+  btn.disabled=true; btn.textContent="Creating account…"; clearAuthMessages();
+  const { error } = await sb.auth.signUp({ email, password:pass });
+  btn.disabled=false; btn.textContent="Create Account ✦";
+  if (error) showAuthError("signup-error", error.message);
+  else showAuthSuccess("signup-success","✓ Account created! Check your email to confirm, then sign in.");
 }
 
-// =============================================================
-//  LOGOUT
-// =============================================================
-async function doLogout() {
-  await sb.auth.signOut();
-  // onAuthStateChange fires → showPage("auth")
-}
+async function doLogout() { await sb.auth.signOut(); }
 
-// =============================================================
-//  APP — format tips
-// =============================================================
+// ============================================================
+//  APP TABS & FORMAT
+// ============================================================
 const FORMAT_TIPS = {
   docx: "💡 <strong>Word (.docx):</strong> Opens in Microsoft Word, Google Docs, or LibreOffice — edit and print directly.",
   pdf:  "💡 <strong>PDF:</strong> Requires Microsoft Word or LibreOffice on the server. Falls back to .docx if unavailable.",
   txt:  "💡 <strong>Plain Text:</strong> Useful for pasting into online job application forms."
 };
-
-let currentTab    = "resume";
-let currentFormat = "docx";
+let currentTab="resume", currentFormat="docx";
 
 function setTab(tab) {
-  currentTab = tab;
-  ["resume","cover","ats"].forEach(t =>
-    document.getElementById("tab-"+t).classList.toggle("active", t === tab)
-  );
-  const fs = document.getElementById("formatSection");
-  fs.style.opacity       = tab === "ats" ? "0.3" : "1";
-  fs.style.pointerEvents = tab === "ats" ? "none" : "auto";
-  if (tab !== "ats") document.getElementById("atsPanel").style.display = "none";
+  currentTab=tab;
+  ["resume","cover","ats"].forEach(t=>document.getElementById("tab-"+t).classList.toggle("active",t===tab));
+  const fs=document.getElementById("formatSection");
+  fs.style.opacity=tab==="ats"?"0.3":"1";
+  fs.style.pointerEvents=tab==="ats"?"none":"auto";
+  if(tab!=="ats") document.getElementById("atsPanel").style.display="none";
   updateFormatTip();
 }
-
 function setFormat(fmt) {
-  currentFormat = fmt;
-  ["docx","pdf","txt"].forEach(f =>
-    document.getElementById("fmt-"+f).classList.toggle("active", f === fmt)
-  );
+  currentFormat=fmt;
+  ["docx","pdf","txt"].forEach(f=>document.getElementById("fmt-"+f).classList.toggle("active",f===fmt));
   updateFormatTip();
 }
-
 function updateFormatTip() {
-  const tip = document.getElementById("formatTip");
-  tip.innerHTML = FORMAT_TIPS[currentFormat] || "";
-  tip.classList.toggle("show", currentTab !== "ats");
+  const tip=document.getElementById("formatTip");
+  tip.innerHTML=FORMAT_TIPS[currentFormat]||"";
+  tip.classList.toggle("show",currentTab!=="ats");
 }
 
-// =============================================================
+// ============================================================
 //  DRAG AND DROP
-// =============================================================
-function onDragOver(e) { e.preventDefault(); document.getElementById("dropZone").classList.add("over"); }
-function onDragLeave()  { document.getElementById("dropZone").classList.remove("over"); }
-function onDrop(e) {
-  e.preventDefault();
-  document.getElementById("dropZone").classList.remove("over");
-  const f = e.dataTransfer.files[0];
-  if (!f) return;
-  const dt = new DataTransfer(); dt.items.add(f);
-  document.getElementById("fileInput").files = dt.files;
-  showFileChip(f);
+// ============================================================
+function onDragOver(e){e.preventDefault();document.getElementById("dropZone").classList.add("over")}
+function onDragLeave(){document.getElementById("dropZone").classList.remove("over")}
+function onDrop(e){
+  e.preventDefault();document.getElementById("dropZone").classList.remove("over");
+  const f=e.dataTransfer.files[0]; if(!f)return;
+  const dt=new DataTransfer();dt.items.add(f);
+  document.getElementById("fileInput").files=dt.files;showFileChip(f);
 }
-function onFileChange(e) { if (e.target.files[0]) showFileChip(e.target.files[0]); }
-function showFileChip(f) {
-  const c = document.getElementById("fileChip");
-  c.style.display = "block";
-  c.textContent   = "✓  " + f.name + "  (" + (f.size/1024).toFixed(1) + " KB)";
+function onFileChange(e){if(e.target.files[0])showFileChip(e.target.files[0])}
+function showFileChip(f){
+  const c=document.getElementById("fileChip");c.style.display="block";
+  c.textContent="✓  "+f.name+"  ("+(f.size/1024).toFixed(1)+" KB)";
 }
 
-// =============================================================
+// ============================================================
 //  STATUS BAR
-// =============================================================
-function setStatus(type, msg) {
-  const bar = document.getElementById("statusBar");
-  const spin = document.getElementById("spinEl");
-  bar.className = "status";
-  if (type === "hide") { bar.style.display = "none"; return; }
+// ============================================================
+function setStatus(type,msg){
+  const bar=document.getElementById("statusBar");
+  const spin=document.getElementById("spinEl");
+  bar.className="status";
+  if(type==="hide"){bar.style.display="none";return}
   bar.classList.add(type);
-  document.getElementById("statusMsg").textContent = msg;
-  spin.style.display = type === "working" ? "block" : "none";
+  document.getElementById("statusMsg").textContent=msg;
+  spin.style.display=type==="working"?"block":"none";
 }
 
-// =============================================================
-//  GENERATE — main function
-//  Attaches the JWT token to every request so the backend
-//  knows who is calling it.
-// =============================================================
+// ============================================================
+//  GENERATE
+// ============================================================
 async function generate() {
-  const fileInput = document.getElementById("fileInput");
-  const jobDesc   = document.getElementById("jobDesc").value.trim();
-  const btn       = document.getElementById("genBtn");
+  const fileInput=document.getElementById("fileInput");
+  const jobDesc  =document.getElementById("jobDesc").value.trim();
+  const btn      =document.getElementById("genBtn");
 
-  if (!fileInput.files || fileInput.files.length === 0) {
-    setStatus("fail", "⚠  Please upload your resume file first.");
-    return;
+  if(!fileInput.files||fileInput.files.length===0){
+    setStatus("fail","⚠  Please upload your resume file first.");return;
   }
+  if(!accessToken){setStatus("fail","⚠  Session expired. Please sign in again.");showPage("auth");return;}
 
-  // Check still logged in
-  if (!accessToken) {
-    setStatus("fail", "⚠  Session expired. Please sign in again.");
-    showPage("auth");
-    return;
-  }
+  btn.disabled=true;btn.classList.add("busy");btn.textContent="Processing…";
+  const msgs={resume:"Running ATS check then rewriting — takes 20–30 seconds…",
+               cover:"Analysing job fit then writing cover letter…",ats:"Running ATS analysis…"};
+  setStatus("working",msgs[currentTab]||"Working…");
+  document.getElementById("atsPanel").style.display="none";
 
-  btn.disabled = true;
-  btn.classList.add("busy");
-  btn.textContent = "Processing…";
-
-  const msgs = {
-    resume: "Running ATS check then rewriting your resume — takes 20–30 seconds…",
-    cover:  "Analysing job fit then writing your cover letter…",
-    ats:    "Running ATS analysis…"
-  };
-  setStatus("working", msgs[currentTab] || "Working…");
-  document.getElementById("atsPanel").style.display = "none";
-
-  const form = new FormData();
-  form.append("file",            fileInput.files[0]);
-  form.append("job_description", jobDesc);
-  form.append("option",          currentTab);
-  form.append("output_format",   currentFormat);
+  const form=new FormData();
+  form.append("file",fileInput.files[0]);
+  form.append("job_description",jobDesc);
+  form.append("option",currentTab);
+  form.append("output_format",currentFormat);
 
   try {
-    const res = await fetch(API + "/generate", {
-      method: "POST",
-      body:   form,
-      headers: {
-        // ← This is the JWT token — the backend verifies this
-        "Authorization": "Bearer " + accessToken
-      }
+    const res=await fetch(API+"/generate",{
+      method:"POST",body:form,
+      headers:{"Authorization":"Bearer "+accessToken}
     });
 
-    if (res.status === 401) {
-      setStatus("fail", "Session expired. Please sign in again.");
-      await sb.auth.signOut();
+    // ── 401: session expired ──────────────────────────────
+    if(res.status===401){
+      setStatus("fail","Session expired. Please sign in again.");
+      await sb.auth.signOut();return;
+    }
+
+    // ── 402: free limit reached → show upgrade popup ──────
+    if(res.status===402){
+      const data=await res.json();
+      showUpgradePopup();
+      setStatus("fail","You've used all "+data.detail.limit+" free generations. Upgrade to continue.");
+      loadUsage();  // refresh badge
       return;
     }
 
-    if (!res.ok) {
-      let msg = "Server error (" + res.status + ")";
-      try { const j = await res.json(); msg = j.detail || msg; } catch(_) {}
+    if(!res.ok){
+      let msg="Server error ("+res.status+")";
+      try{const j=await res.json();msg=j.detail||msg}catch(_){}
       throw new Error(msg);
     }
 
-    const ctype    = res.headers.get("Content-Type") || "";
-    const fallback = res.headers.get("X-Fallback")   || "";
+    const ctype   =res.headers.get("Content-Type")||"";
+    const fallback=res.headers.get("X-Fallback")||"";
 
-    if (ctype.includes("application/json")) {
+    if(ctype.includes("application/json")){
       renderAts(await res.json());
-      setStatus("ok", "✓  ATS analysis complete.");
+      setStatus("ok","✓  ATS analysis complete.");
+      loadUsage();
     } else {
-      const blob = await res.blob();
-      const disp = res.headers.get("Content-Disposition") || "";
-      const m    = disp.match(/filename="?([^"]+)"?/);
-      const ext  = currentFormat === "pdf" ? "pdf" : currentFormat === "txt" ? "txt" : "docx";
-      const name = m ? m[1] : (currentTab === "cover" ? "cover_letter" : "resume") + "." + ext;
-
-      if (fallback === "pdf-unavailable") {
-        setStatus("ok", "✓ Done! PDF conversion unavailable — downloaded as .docx instead.");
+      const blob=await res.blob();
+      const disp=res.headers.get("Content-Disposition")||"";
+      const m=disp.match(/filename="?([^"]+)"?/);
+      const ext=currentFormat==="pdf"?"pdf":currentFormat==="txt"?"txt":"docx";
+      const name=m?m[1]:(currentTab==="cover"?"cover_letter":"resume")+"."+ext;
+      if(fallback==="pdf-unavailable"){
+        setStatus("ok","✓ Done! PDF unavailable — downloaded as .docx instead.");
       } else {
-        setStatus("ok", "✓ Done! Downloading " + name + "…");
+        setStatus("ok","✓ Done! Downloading "+name+"…");
       }
-      triggerDownload(blob, name);
+      triggerDownload(blob,name);
+      loadUsage();  // refresh usage badge after successful generation
     }
-
-  } catch(err) {
-    setStatus("fail", "✗  " + err.message);
+  } catch(err){
+    setStatus("fail","✗  "+err.message);
     console.error(err);
   } finally {
-    btn.disabled = false;
-    btn.classList.remove("busy");
-    btn.textContent = "Generate & Download ✦";
+    btn.disabled=false;btn.classList.remove("busy");btn.textContent="Generate & Download ✦";
   }
 }
 
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement("a"), { href:url, download:filename });
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+function triggerDownload(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=Object.assign(document.createElement("a"),{href:url,download:filename});
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1500);
 }
 
-// =============================================================
-//  RENDER ATS PANEL
-// =============================================================
-function renderAts(data) {
-  document.getElementById("atsPanel").style.display = "block";
-  const score = data.score || 0;
-  const level = (data.level || "").toLowerCase();
-  const cls   = level || (score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor");
-  document.getElementById("scoreRing").className = "score-ring " + cls;
-  document.getElementById("scoreNum").textContent  = score;
-  document.getElementById("scoreLevel").textContent = data.level || cls.charAt(0).toUpperCase()+cls.slice(1);
-  const descs = {
-    excellent: "Great match! Your resume aligns well with the job description.",
-    good:      "Good match. Adding missing keywords will strengthen it further.",
-    fair:      "Moderate match. Follow the suggestions below to improve your score.",
-    poor:      "Low match. Significant gaps — see suggestions to improve."
-  };
-  document.getElementById("scoreDesc").textContent = descs[cls] || descs.fair;
-
-  const matchEl = document.getElementById("matchedTags");
-  matchEl.innerHTML = "";
-  (data.matched_keywords||[]).forEach(kw => {
-    const t=document.createElement("span"); t.className="tag-hit"; t.textContent=kw; matchEl.appendChild(t);
-  });
-  if (!matchEl.children.length) matchEl.innerHTML="<span style='color:var(--muted);font-size:13px'>None detected</span>";
-
-  const missEl = document.getElementById("missingTags");
-  missEl.innerHTML = "";
-  (data.missing_keywords||[]).forEach(kw => {
-    const t=document.createElement("span"); t.className="tag-miss"; t.textContent=kw; missEl.appendChild(t);
-  });
-  if (!missEl.children.length) missEl.innerHTML="<span style='color:var(--green);font-size:13px'>✓ No critical keywords missing!</span>";
-
-  const sugEl = document.getElementById("sugList");
-  sugEl.innerHTML = "";
-  const sugs = data.suggestions||[];
-  if (!sugs.length) { sugEl.innerHTML="<li>No additional suggestions.</li>"; }
-  else sugs.forEach(s => { const li=document.createElement("li"); li.textContent=s; sugEl.appendChild(li); });
+// ============================================================
+//  ATS PANEL
+// ============================================================
+function renderAts(data){
+  document.getElementById("atsPanel").style.display="block";
+  const score=data.score||0;
+  const level=(data.level||"").toLowerCase();
+  const cls=level||(score>=90?"excellent":score>=70?"good":score>=50?"fair":"poor");
+  document.getElementById("scoreRing").className="score-ring "+cls;
+  document.getElementById("scoreNum").textContent=score;
+  document.getElementById("scoreLevel").textContent=data.level||cls.charAt(0).toUpperCase()+cls.slice(1);
+  const descs={excellent:"Great match! Your resume aligns well with the job description.",
+               good:"Good match. Adding missing keywords will strengthen it.",
+               fair:"Moderate match. Follow the suggestions below.",
+               poor:"Low match. Significant gaps — see suggestions."};
+  document.getElementById("scoreDesc").textContent=descs[cls]||descs.fair;
+  const matchEl=document.getElementById("matchedTags");matchEl.innerHTML="";
+  (data.matched_keywords||[]).forEach(kw=>{const t=document.createElement("span");t.className="tag-hit";t.textContent=kw;matchEl.appendChild(t)});
+  if(!matchEl.children.length)matchEl.innerHTML="<span style='color:var(--muted);font-size:13px'>None detected</span>";
+  const missEl=document.getElementById("missingTags");missEl.innerHTML="";
+  (data.missing_keywords||[]).forEach(kw=>{const t=document.createElement("span");t.className="tag-miss";t.textContent=kw;missEl.appendChild(t)});
+  if(!missEl.children.length)missEl.innerHTML="<span style='color:var(--green);font-size:13px'>✓ No critical keywords missing!</span>";
+  const sugEl=document.getElementById("sugList");sugEl.innerHTML="";
+  const sugs=data.suggestions||[];
+  if(!sugs.length){sugEl.innerHTML="<li>No additional suggestions.</li>"}
+  else sugs.forEach(s=>{const li=document.createElement("li");li.textContent=s;sugEl.appendChild(li)});
 }
 </script>
 </body>
